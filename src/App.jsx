@@ -391,6 +391,17 @@ export default function App() {
     }
   },[playing,curRoute.length]);
 
+  const handleDropPin = () => {
+    let coords;
+    if(gpsInput.format==='dms') coords = parseDMS(gpsInput.dms);
+    else coords = { lat: parseFloat(gpsInput.lat), lng: parseFloat(gpsInput.lng) };
+    if(coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
+      const pos = gpsToPosition(coords.lat, coords.lng);
+      setNewSpotDraft({...newSpotDraft,gps:{lat:coords.lat.toFixed(4)+'\u00B0N',lng:Math.abs(coords.lng).toFixed(4)+'\u00B0W'},position:pos});
+      showT('Pin dropped: '+coords.lat.toFixed(4)+', '+coords.lng.toFixed(4));
+    } else showT('Invalid GPS coordinates');
+  };
+
   const showT=m=>{setToast(m);setTimeout(()=>setToast(null),3000);};
   const cpGPS=g=>{navigator.clipboard?.writeText(`${g.lat}, ${g.lng}`);setCopied(true);setTimeout(()=>setCopied(false),2000);};
   const openBay=id=>{setSelBay(bayData[id]);setPage('bay');setSelSpot(null);setShowRoute(false);setShowBS(false);setSpotFilter('all');};
@@ -753,24 +764,16 @@ export default function App() {
             {gpsInput.mode==='manual'&&<div>
               <div style={{display:'flex',gap:4,marginBottom:10}}>
                 <button onClick={()=>setGpsInput({...gpsInput,format:'dd'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format!=='dms'?C.cyan:C.card2,color:gpsInput.format!=='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format!=='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>Decimal (28.7234)</button>
-                <button onClick={()=>setGpsInput({...gpsInput,format:'dms'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format==='dms'?C.cyan:C.card2,color:gpsInput.format==='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format==='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>{`DMS (28°43'24"N)`}</button>
+                <button onClick={()=>setGpsInput({...gpsInput,format:'dms'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format==='dms'?C.cyan:C.card2,color:gpsInput.format==='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format==='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>DMS (28d 43m 24s N)</button>
               </div>
-              {gpsInput.format!=='dms'?<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              {gpsInput.format!=='dms' && <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                 <Inp label="Latitude" placeholder="28.7234" value={gpsInput.lat} onChange={e=>setGpsInput({...gpsInput,lat:e.target.value})}/>
                 <Inp label="Longitude" placeholder="-95.8612" value={gpsInput.lng} onChange={e=>setGpsInput({...gpsInput,lng:e.target.value})}/>
-              </div>:<div>
-                <Inp label="DMS Coordinates" placeholder={`28°43'24.1"N 95°52'36.2"W`} value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
               </div>}
-              <Btn primary style={{width:'100%',marginTop:10}} onClick={()=>{
-                let coords;
-                if(gpsInput.format==='dms') coords = parseDMS(gpsInput.dms);
-                else coords = { lat: parseFloat(gpsInput.lat), lng: parseFloat(gpsInput.lng) };
-                if(coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
-                  const pos = gpsToPosition(coords.lat, coords.lng);
-                  setNewSpotDraft({...newSpotDraft,gps:{lat:coords.lat.toFixed(4)+'°N',lng:Math.abs(coords.lng).toFixed(4)+'°W'},position:pos});
-                  showT(`📍 Pin dropped: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
-                } else showT('Invalid GPS coordinates');
-              }}><PinI s={14} c={C.bg}/> Drop Pin at Coordinates</Btn>
+              {gpsInput.format==='dms' && <div>
+                <Inp label="DMS Coordinates" placeholder="28 43 24.1 N 95 52 36.2 W" value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
+              </div>}
+              <Btn primary style={{width:'100%',marginTop:10}} onClick={handleDropPin}><PinI s={14} c={C.bg}/> Drop Pin at Coordinates</Btn>
             </div>}
 
             {/* PHOTO GPS EXTRACTION */}
@@ -922,13 +925,13 @@ export default function App() {
           {/* Coordinate Converter */}
           <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
             <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><TargetI s={16} c={C.teal}/> Coordinate Converter</div>
-            <Inp label="Paste any coordinate format" placeholder={`28.7234, -95.8612  or  28°43'24"N 95°52'36"W`} onChange={e=>{
+            <Inp label="Paste any coordinate format" placeholder="28.7234, -95.8612  or  28 43 24 N 95 52 36 W" onChange={e=>{
               const coords = parseGPS(e.target.value);
               if(coords) setGpsInput({...gpsInput,lat:coords.lat.toFixed(6),lng:coords.lng.toFixed(6)});
             }}/>
             {gpsInput.lat&&<div style={{marginTop:8,padding:10,background:C.bg,borderRadius:8,border:`1px solid ${C.bdr}`,fontFamily:FM,fontSize:11}}>
               <div style={{color:C.cyan}}>Decimal: {gpsInput.lat}, {gpsInput.lng}</div>
-              <div style={{color:C.teal,marginTop:4}}>DMS: {Math.abs(parseFloat(gpsInput.lat)).toFixed(0)}°{((Math.abs(parseFloat(gpsInput.lat))%1)*60).toFixed(0)}'{((((Math.abs(parseFloat(gpsInput.lat))%1)*60)%1)*60).toFixed(1)}"{ parseFloat(gpsInput.lat)>=0?'N':'S'} {Math.abs(parseFloat(gpsInput.lng)).toFixed(0)}°{((Math.abs(parseFloat(gpsInput.lng))%1)*60).toFixed(0)}'{((((Math.abs(parseFloat(gpsInput.lng))%1)*60)%1)*60).toFixed(1)}"{ parseFloat(gpsInput.lng)>=0?'E':'W'}</div>
+              <div style={{color:C.teal,marginTop:4}}>DMS: {Math.abs(parseFloat(gpsInput.lat)).toFixed(0)}{'\u00B0'}{((Math.abs(parseFloat(gpsInput.lat))%1)*60).toFixed(0)}{'\u2032'}{((((Math.abs(parseFloat(gpsInput.lat))%1)*60)%1)*60).toFixed(1)}{'\u2033'}{ parseFloat(gpsInput.lat)>=0?'N':'S'} {Math.abs(parseFloat(gpsInput.lng)).toFixed(0)}{'\u00B0'}{((Math.abs(parseFloat(gpsInput.lng))%1)*60).toFixed(0)}{'\u2032'}{((((Math.abs(parseFloat(gpsInput.lng))%1)*60)%1)*60).toFixed(1)}{'\u2033'}{ parseFloat(gpsInput.lng)>=0?'E':'W'}</div>
             </div>}
           </div>
 
