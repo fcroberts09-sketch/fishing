@@ -753,13 +753,13 @@ export default function App() {
             {gpsInput.mode==='manual'&&<div>
               <div style={{display:'flex',gap:4,marginBottom:10}}>
                 <button onClick={()=>setGpsInput({...gpsInput,format:'dd'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format!=='dms'?C.cyan:C.card2,color:gpsInput.format!=='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format!=='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>Decimal (28.7234)</button>
-                <button onClick={()=>setGpsInput({...gpsInput,format:'dms'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format==='dms'?C.cyan:C.card2,color:gpsInput.format==='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format==='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>DMS (28°43'24"N)</button>
+                <button onClick={()=>setGpsInput({...gpsInput,format:'dms'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format==='dms'?C.cyan:C.card2,color:gpsInput.format==='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format==='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>{`DMS (28°43'24"N)`}</button>
               </div>
               {gpsInput.format!=='dms'?<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                 <Inp label="Latitude" placeholder="28.7234" value={gpsInput.lat} onChange={e=>setGpsInput({...gpsInput,lat:e.target.value})}/>
                 <Inp label="Longitude" placeholder="-95.8612" value={gpsInput.lng} onChange={e=>setGpsInput({...gpsInput,lng:e.target.value})}/>
               </div>:<div>
-                <Inp label="DMS Coordinates" placeholder={"28°43'24.1\"N 95°52'36.2\"W"} value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
+                <Inp label="DMS Coordinates" placeholder={`28°43'24.1"N 95°52'36.2"W`} value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
               </div>}
               <Btn primary style={{width:'100%',marginTop:10}} onClick={()=>{
                 let coords;
@@ -922,7 +922,7 @@ export default function App() {
           {/* Coordinate Converter */}
           <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
             <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><TargetI s={16} c={C.teal}/> Coordinate Converter</div>
-            <Inp label="Paste any coordinate format" placeholder={"28.7234, -95.8612  or  28°43'24\"N 95°52'36\"W"} onChange={e=>{
+            <Inp label="Paste any coordinate format" placeholder={`28.7234, -95.8612  or  28°43'24"N 95°52'36"W`} onChange={e=>{
               const coords = parseGPS(e.target.value);
               if(coords) setGpsInput({...gpsInput,lat:coords.lat.toFixed(6),lng:coords.lng.toFixed(6)});
             }}/>
