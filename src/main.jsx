@@ -8,14 +8,3 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 )
-```
-
-4. Click **Commit changes**
-
-Then do it again:
-
-1. Click **Add file** → **Create new file**
-2. In the filename box type: `src/App.jsx`
-3. Now open this file on your computer in Notepad:
-```
-C:\Users\Admin1\Downloads\texas-tides\src\App.jsx
