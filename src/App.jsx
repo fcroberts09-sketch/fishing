@@ -759,7 +759,7 @@ export default function App() {
                 <Inp label="Latitude" placeholder="28.7234" value={gpsInput.lat} onChange={e=>setGpsInput({...gpsInput,lat:e.target.value})}/>
                 <Inp label="Longitude" placeholder="-95.8612" value={gpsInput.lng} onChange={e=>setGpsInput({...gpsInput,lng:e.target.value})}/>
               </div>:<div>
-                <Inp label="DMS Coordinates" placeholder='28°43\'24.1"N 95°52\'36.2"W' value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
+                <Inp label="DMS Coordinates" placeholder={"28°43'24.1\"N 95°52'36.2\"W"} value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
               </div>}
               <Btn primary style={{width:'100%',marginTop:10}} onClick={()=>{
                 let coords;
@@ -922,7 +922,7 @@ export default function App() {
           {/* Coordinate Converter */}
           <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
             <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><TargetI s={16} c={C.teal}/> Coordinate Converter</div>
-            <Inp label="Paste any coordinate format" placeholder='28.7234, -95.8612  or  28°43\'24"N 95°52\'36"W' onChange={e=>{
+            <Inp label="Paste any coordinate format" placeholder={"28.7234, -95.8612  or  28°43'24\"N 95°52'36\"W"} onChange={e=>{
               const coords = parseGPS(e.target.value);
               if(coords) setGpsInput({...gpsInput,lat:coords.lat.toFixed(6),lng:coords.lng.toFixed(6)});
             }}/>
