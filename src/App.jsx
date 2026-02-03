@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+    import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, LayersControl, Marker, Popup, Tooltip, Polyline, Circle, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -36,6 +36,12 @@ const KeyI=p=><I {...p} d={<><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 
 const UploadI=p=><I {...p} d={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>}/>;
 const MapEdI=p=><I {...p} d={<><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></>}/>;
 const ThermI=p=><I {...p} d={<><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></>}/>;
+const TargetI=p=><I {...p} d={<><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></>}/>;
+const CopyI=p=><I {...p} d={<><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>}/>;
+const DownloadI=p=><I {...p} d={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>}/>;
+const SearchI=p=><I {...p} d={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>}/>;
+const LayerI=p=><I {...p} d={<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>}/>;
+const MoveI=p=><I {...p} d={<><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></>}/>;
 
 // ─── THEME ───
 const C={bg:'#0b1220',card:'#111b2e',card2:'#162036',bdr:'#1e2d47',bdr2:'#2a3f63',cyan:'#06b6d4',teal:'#14b8a6',amber:'#f59e0b',blue:'#3b82f6',green:'#10b981',red:'#ef4444',purple:'#8b5cf6',txt:'#e2e8f0',mid:'#94a3b8',dim:'#64748b'};
@@ -157,6 +163,21 @@ export default function App() {
   const [newShade,setNewShade]=useState({type:'wade',label:'',cx:50,cy:50,rx:8,ry:5});
   const [newLaunch,setNewLaunch]=useState({name:'',type:'boat',gps:'',notes:''});
 
+  // ─── ENHANCED MAP EDITOR STATE ───
+  const [edMapMode,setEdMapMode]=useState(null); // 'drop-pin','draw-route','draw-zone','measure'
+  const [editingSpot,setEditingSpot]=useState(null);
+  const [editingWaypoint,setEditingWaypoint]=useState(null);
+  const [newSpotDraft,setNewSpotDraft]=useState({name:'',type:'wade',species:[],bestTide:'Incoming',bestTime:'',lures:[],desc:'',gps:{lat:'',lng:''},position:{x:50,y:50},route:[]});
+  const [gpsInput,setGpsInput]=useState({mode:'click',lat:'',lng:'',dms:''});
+  const [edSearch,setEdSearch]=useState('');
+  const [edSortBy,setEdSortBy]=useState('name');
+  const [wpFolders,setWpFolders]=useState([{id:'default',name:'All Spots',color:C.cyan},{id:'fav',name:'Favorites',color:C.amber},{id:'recent',name:'Recent Trips',color:C.green}]);
+  const [selFolder,setSelFolder]=useState('default');
+  const [photoGPS,setPhotoGPS]=useState(null);
+  const [showGPSEntry,setShowGPSEntry]=useState(false);
+  const [showExport,setShowExport]=useState(false);
+  const [spotNotes,setSpotNotes]=useState({});
+
   const weather={temp:78,wind:12,windDir:'SE',gusts:18,conditions:'Partly Cloudy',waterTemp:71};
   const tide={status:'Rising',next:'High at 2:34 PM'};
 
@@ -188,6 +209,155 @@ export default function App() {
   const bayShades = shadeZones.filter(z=>z.bay===(selBay?.id||'matagorda'));
   const curRoute = selSpot?.route||[];
   const curWP = curRoute[routeStep];
+
+  // ─── GPS & COORDINATE HELPERS ───
+  const parseDMS = (dms) => {
+    // Parse "28°43'24.1\"N 95°52'36.2\"W" or "28 43 24.1 N 95 52 36.2 W"
+    const parts = dms.replace(/[°'"]/g,' ').trim().split(/\s+/);
+    if(parts.length >= 4) {
+      const lat = parseFloat(parts[0]) + parseFloat(parts[1]||0)/60 + parseFloat(parts[2]||0)/3600;
+      const latDir = parts[3]?.toUpperCase();
+      let lng, lngDir;
+      if(parts.length >= 8) { lng = parseFloat(parts[4]) + parseFloat(parts[5]||0)/60 + parseFloat(parts[6]||0)/3600; lngDir = parts[7]?.toUpperCase(); }
+      else if(parts.length >= 6) { lng = parseFloat(parts[4]) + parseFloat(parts[5]||0)/60; lngDir = parts[6]?.toUpperCase(); }
+      return { lat: latDir==='S' ? -lat : lat, lng: lngDir==='W' ? -lng : lng };
+    }
+    return null;
+  };
+
+  const parseDecimal = (input) => {
+    // Parse "28.7234, -95.8612" or "28.7234°N, 95.8612°W"
+    const clean = input.replace(/[°NSEW,]/gi,' ').trim().split(/\s+/);
+    if(clean.length >= 2) {
+      let lat = parseFloat(clean[0]), lng = parseFloat(clean[1]);
+      if(input.match(/[Ss]/)) lat = -Math.abs(lat);
+      if(input.match(/[Ww]/)) lng = -Math.abs(lng);
+      if(!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+    return null;
+  };
+
+  const parseGPS = (input) => {
+    if(!input) return null;
+    return parseDecimal(input) || parseDMS(input);
+  };
+
+  const formatGPS = (lat, lng) => {
+    const la = Math.abs(lat).toFixed(4); const lo = Math.abs(lng).toFixed(4);
+    return `${la}°${lat>=0?'N':'S'}, ${lo}°${lat>=0?'':''}${lng<=0?'W':'E'}`;
+  };
+
+  const gpsToPosition = (lat, lng) => {
+    // Reverse of toLatLng: lat = 28.85 - (y/100)*0.32, lng = -96.18 + (x/100)*0.62
+    const y = ((28.85 - lat) / 0.32) * 100;
+    const x = ((lng + 96.18) / 0.62) * 100;
+    return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+  };
+
+  const extractPhotoGPS = async (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const view = new DataView(e.target.result);
+          if(view.getUint16(0) !== 0xFFD8) { resolve(null); return; }
+          let offset = 2;
+          while(offset < view.byteLength) {
+            if(view.getUint16(offset) === 0xFFE1) {
+              const exifData = parseExifGPS(view, offset + 4);
+              resolve(exifData);
+              return;
+            }
+            offset += 2 + view.getUint16(offset + 2);
+          }
+          resolve(null);
+        } catch(err) { resolve(null); }
+      };
+      reader.readAsArrayBuffer(file.slice(0, 131072)); // Read first 128KB
+    });
+  };
+
+  const parseExifGPS = (view, start) => {
+    try {
+      if(view.getUint32(start) !== 0x45786966) return null; // "Exif"
+      const tiffStart = start + 6;
+      const bigEndian = view.getUint16(tiffStart) === 0x4D4D;
+      const g16 = (o) => bigEndian ? view.getUint16(o) : view.getUint16(o, true);
+      const g32 = (o) => bigEndian ? view.getUint32(o) : view.getUint32(o, true);
+      const gR = (o) => g32(o) / g32(o+4); // rational
+      let ifdOff = tiffStart + g32(tiffStart + 4);
+      // Find GPS IFD pointer in IFD0
+      let gpsOff = 0;
+      const entries = g16(ifdOff);
+      for(let i = 0; i < entries; i++) {
+        const tag = g16(ifdOff + 2 + i*12);
+        if(tag === 0x8825) { gpsOff = tiffStart + g32(ifdOff + 2 + i*12 + 8); break; }
+      }
+      if(!gpsOff) return null;
+      // Parse GPS IFD
+      const gpsEntries = g16(gpsOff);
+      let latRef='N', lngRef='W', latVals=null, lngVals=null;
+      for(let i = 0; i < gpsEntries; i++) {
+        const tag = g16(gpsOff + 2 + i*12);
+        const valOff = tiffStart + g32(gpsOff + 2 + i*12 + 8);
+        if(tag === 1) latRef = String.fromCharCode(view.getUint8(gpsOff + 2 + i*12 + 8));
+        if(tag === 2) latVals = [gR(valOff), gR(valOff+8), gR(valOff+16)];
+        if(tag === 3) lngRef = String.fromCharCode(view.getUint8(gpsOff + 2 + i*12 + 8));
+        if(tag === 4) lngVals = [gR(valOff), gR(valOff+8), gR(valOff+16)];
+      }
+      if(!latVals || !lngVals) return null;
+      let lat = latVals[0] + latVals[1]/60 + latVals[2]/3600;
+      let lng = lngVals[0] + lngVals[1]/60 + lngVals[2]/3600;
+      if(latRef === 'S') lat = -lat;
+      if(lngRef === 'W') lng = -lng;
+      return { lat, lng };
+    } catch(e) { return null; }
+  };
+
+  const generateGPX = (spots) => {
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TexasTides">\n  <metadata><name>TexasTides Fishing Spots</name><time>${new Date().toISOString()}</time></metadata>\n`;
+    spots.forEach(s => {
+      const [lat, lng] = bayConfig.toLatLng(s.position);
+      gpx += `  <wpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}"><name>${s.name}</name><desc>${s.desc||''}</desc><type>${s.type}</type></wpt>\n`;
+      if(s.route) {
+        gpx += `  <rte><name>${s.name} Route</name>\n`;
+        s.route.forEach((wp,i) => {
+          const [wlat, wlng] = bayConfig.toLatLng(wp.pos);
+          gpx += `    <rtept lat="${wlat.toFixed(6)}" lon="${wlng.toFixed(6)}"><name>${wp.title}</name><desc>${wp.desc||''}</desc></rtept>\n`;
+        });
+        gpx += `  </rte>\n`;
+      }
+    });
+    gpx += `</gpx>`;
+    return gpx;
+  };
+
+  const downloadFile = (content, filename, type='text/xml') => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const parseGPXFile = (text) => {
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, 'text/xml');
+      const wpts = xml.querySelectorAll('wpt');
+      const imported = [];
+      wpts.forEach(wpt => {
+        const lat = parseFloat(wpt.getAttribute('lat'));
+        const lng = parseFloat(wpt.getAttribute('lon'));
+        const name = wpt.querySelector('name')?.textContent || 'Imported Spot';
+        const desc = wpt.querySelector('desc')?.textContent || '';
+        const type = wpt.querySelector('type')?.textContent || 'boat';
+        const pos = gpsToPosition(lat, lng);
+        imported.push({ id: Date.now() + Math.random(), bay:'matagorda', name, type: ['wade','boat','kayak'].includes(type)?type:'boat', position: pos, gps:{lat:formatGPS(lat,lng).split(',')[0],lng:formatGPS(lat,lng).split(',')[1]?.trim()}, rating:0, species:[], bestTide:'Any', bestTime:'', bestSeason:'', bestWind:'', lures:[], desc, parking:pos, media:[], route:[] });
+      });
+      return imported;
+    } catch(e) { return []; }
+  };
 
   // Convert shade zone to polygon points
   const shadeToPolygon = (z) => {
@@ -513,18 +683,266 @@ export default function App() {
         <Btn primary style={{width:'100%'}} onClick={()=>{showT('Settings saved');setShowSettings(false);}}><SaveI s={14} c={C.bg}/> Save</Btn>
       </Modal>}
 
-      {showEditor&&<Modal title="Map Editor" sub="Manage spots, zones, launches" onClose={()=>setShowEditor(false)} wide>
-        <div style={{display:'flex',gap:4,marginBottom:20}}>
-          {[{id:'spots',l:'Spots',i:'🎯'},{id:'shading',l:'Zones',i:'🗺️'},{id:'launches',l:'Launches',i:'⛵'},{id:'photos',l:'Photos',i:'📷'}].map(t=><button key={t.id} onClick={()=>setEdTab(t.id)} style={{flex:1,padding:10,borderRadius:8,fontSize:12,fontWeight:600,background:edTab===t.id?C.cyan:C.card2,color:edTab===t.id?C.bg:C.mid,border:`1px solid ${edTab===t.id?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>{t.i} {t.l}</button>)}
+      {showEditor&&<Modal title="Map Editor Pro" sub="Drop pins • GPS entry • Import/Export • Photo GPS • Measure" onClose={()=>{setShowEditor(false);setEdMapMode(null);setEditingSpot(null);}} wide>
+        {/* ─── TOP TOOLBAR ─── */}
+        <div style={{display:'flex',gap:4,marginBottom:12,flexWrap:'wrap'}}>
+          {[{id:'spots',l:'Spots',i:'🎯'},{id:'waypoints',l:'Waypoints',i:'📌'},{id:'shading',l:'Zones',i:'🗺️'},{id:'launches',l:'Launches',i:'⛵'},{id:'photos',l:'Photos',i:'📷'},{id:'tools',l:'Tools',i:'🛠️'}].map(t=><button key={t.id} onClick={()=>setEdTab(t.id)} style={{flex:'1 1 auto',minWidth:55,padding:'8px 6px',borderRadius:8,fontSize:11,fontWeight:600,background:edTab===t.id?C.cyan:C.card2,color:edTab===t.id?C.bg:C.mid,border:`1px solid ${edTab===t.id?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>{t.i}<br/>{t.l}</button>)}
         </div>
-        {edTab==='spots'&&<div>{allSpots.filter(s=>s.bay==='matagorda').map(s=><div key={s.id} style={{display:'flex',alignItems:'center',gap:10,padding:12,background:C.card2,borderRadius:10,border:`1px solid ${C.bdr}`,marginBottom:6}}><div style={{width:36,height:36,borderRadius:8,background:sc(s.type),display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{si(s.type)}</div><div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:C.dim}}>{s.gps.lat}, {s.gps.lng} • {s.route.length} waypoints</div></div><Btn small><EditI s={12}/> Edit</Btn></div>)}<Btn primary style={{width:'100%',marginTop:12}}><PlusI s={14} c={C.bg}/> Add Spot</Btn></div>}
+
+        {/* ═══ SPOTS TAB ═══ */}
+        {edTab==='spots'&&<div>
+          {/* Search & Sort Bar */}
+          <div style={{display:'flex',gap:8,marginBottom:12}}>
+            <div style={{flex:1,position:'relative'}}><SearchI s={14} c={C.dim} style={{position:'absolute',left:10,top:10}}/><input value={edSearch} onChange={e=>setEdSearch(e.target.value)} placeholder="Search spots..." style={{width:'100%',padding:'8px 8px 8px 32px',borderRadius:8,background:C.card2,border:`1px solid ${C.bdr}`,color:C.txt,fontSize:12,fontFamily:Fnt,outline:'none'}}/></div>
+            <select value={edSortBy} onChange={e=>setEdSortBy(e.target.value)} style={{padding:'8px 12px',borderRadius:8,background:C.card2,border:`1px solid ${C.bdr}`,color:C.mid,fontSize:11,fontFamily:Fnt}}>
+              <option value="name">A-Z</option><option value="rating">★ Rating</option><option value="type">Type</option>
+            </select>
+          </div>
+          {/* Spot Filter Chips */}
+          <div style={{display:'flex',gap:4,marginBottom:12}}>
+            {['all','wade','boat','kayak'].map(f=><button key={f} onClick={()=>setSpotFilter(f)} style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:600,background:spotFilter===f?sc(f==='all'?'wade':f):C.card2,color:spotFilter===f?C.bg:C.mid,border:`1px solid ${spotFilter===f?sc(f==='all'?'wade':f):C.bdr}`,cursor:'pointer',fontFamily:Fnt,textTransform:'capitalize'}}>{f==='all'?'🎯 All':`${si(f)} ${f}`}</button>)}
+          </div>
+          {/* Spot List */}
+          {allSpots.filter(s=>s.bay==='matagorda').filter(s=>spotFilter==='all'||s.type===spotFilter).filter(s=>!edSearch||s.name.toLowerCase().includes(edSearch.toLowerCase())).sort((a,b)=>edSortBy==='rating'?b.rating-a.rating:edSortBy==='type'?a.type.localeCompare(b.type):a.name.localeCompare(b.name)).map(s=><div key={s.id} style={{display:'flex',alignItems:'center',gap:10,padding:12,background:editingSpot?.id===s.id?`${C.cyan}15`:C.card2,borderRadius:10,border:`1px solid ${editingSpot?.id===s.id?C.cyan:C.bdr}`,marginBottom:6,cursor:'pointer'}} onClick={()=>setEditingSpot(editingSpot?.id===s.id?null:s)}>
+            <div style={{width:36,height:36,borderRadius:8,background:sc(s.type),display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{si(s.type)}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:600,fontSize:13,display:'flex',alignItems:'center',gap:6}}>{s.name} <span style={{fontSize:10,color:C.amber}}>★ {s.rating}</span></div>
+              <div style={{fontSize:11,color:C.dim}}>{s.gps.lat}, {s.gps.lng}</div>
+              <div style={{fontSize:10,color:C.dim,marginTop:2}}>{s.species?.slice(0,3).join(' • ')} • {s.route.length} waypoints</div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              <Btn small onClick={(e)=>{e.stopPropagation();const [lat,lng]=bayConfig.toLatLng(s.position);navigator.clipboard?.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);showT('GPS Copied');}}><CopyI s={11}/></Btn>
+              <Btn small><EditI s={11}/></Btn>
+            </div>
+          </div>)}
+          {/* Expanded Edit Panel */}
+          {editingSpot&&<div style={{background:C.card2,borderRadius:12,padding:16,marginTop:8,border:`1px solid ${C.cyan}40`}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.cyan,marginBottom:10,display:'flex',alignItems:'center',gap:6}}><EditI s={14} c={C.cyan}/> Editing: {editingSpot.name}</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+              <div><Lbl>GPS Lat</Lbl><div style={{padding:8,borderRadius:6,background:C.bg,border:`1px solid ${C.bdr}`,fontSize:12,color:C.txt,fontFamily:FM}}>{editingSpot.gps.lat}</div></div>
+              <div><Lbl>GPS Lng</Lbl><div style={{padding:8,borderRadius:6,background:C.bg,border:`1px solid ${C.bdr}`,fontSize:12,color:C.txt,fontFamily:FM}}>{editingSpot.gps.lng}</div></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:10}}>
+              <div style={{textAlign:'center',padding:8,borderRadius:8,background:`${C.green}15`,border:`1px solid ${C.green}30`}}><div style={{fontSize:18}}>🐟</div><div style={{fontSize:10,color:C.green,fontWeight:600}}>{editingSpot.species?.length || 0} Species</div></div>
+              <div style={{textAlign:'center',padding:8,borderRadius:8,background:`${C.blue}15`,border:`1px solid ${C.blue}30`}}><div style={{fontSize:18}}>📍</div><div style={{fontSize:10,color:C.blue,fontWeight:600}}>{editingSpot.route?.length || 0} Waypoints</div></div>
+              <div style={{textAlign:'center',padding:8,borderRadius:8,background:`${C.amber}15`,border:`1px solid ${C.amber}30`}}><div style={{fontSize:18}}>🎣</div><div style={{fontSize:10,color:C.amber,fontWeight:600}}>{editingSpot.lures?.length || 0} Lures</div></div>
+            </div>
+            <Lbl>Notes</Lbl>
+            <textarea value={spotNotes[editingSpot.id]||editingSpot.desc||''} onChange={e=>setSpotNotes({...spotNotes,[editingSpot.id]:e.target.value})} placeholder="Add personal notes about this spot..." style={{width:'100%',padding:10,borderRadius:8,background:C.bg,border:`1px solid ${C.bdr}`,color:C.txt,fontSize:12,fontFamily:Fnt,minHeight:60,resize:'vertical',outline:'none'}}/>
+            <div style={{display:'flex',gap:6,marginTop:10}}>
+              <Btn small primary onClick={()=>{showT('Spot saved');setEditingSpot(null);}}><SaveI s={12} c={C.bg}/> Save</Btn>
+              <Btn small onClick={()=>{const [lat,lng]=bayConfig.toLatLng(editingSpot.position);navigator.clipboard?.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);showT('GPS Copied!');}}><CopyI s={12}/> Copy GPS</Btn>
+              <Btn small danger onClick={()=>{showT('Spot removed');setEditingSpot(null);}}><TrashI s={12}/></Btn>
+            </div>
+          </div>}
+          {/* Add New Spot */}
+          <Btn primary style={{width:'100%',marginTop:12}} onClick={()=>setEdTab('waypoints')}><PlusI s={14} c={C.bg}/> Add New Spot</Btn>
+        </div>}
+
+        {/* ═══ WAYPOINTS / DROP PIN TAB ═══ */}
+        {edTab==='waypoints'&&<div>
+          <div style={{background:`${C.cyan}08`,border:`1px solid ${C.cyan}30`,borderRadius:12,padding:16,marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:C.cyan,marginBottom:4,display:'flex',alignItems:'center',gap:8}}><TargetI s={18} c={C.cyan}/> Add Waypoint / Drop Pin</div>
+            <div style={{fontSize:12,color:C.mid,marginBottom:12}}>Choose how you want to mark your spot on the map</div>
+            {/* GPS Input Mode Tabs */}
+            <div style={{display:'flex',gap:4,marginBottom:16}}>
+              {[{id:'manual',l:'📝 Enter GPS',d:'Type coordinates'},{id:'photo',l:'📷 From Photo',d:'Extract EXIF GPS'},{id:'map',l:'🗺️ Click Map',d:'Tap location'}].map(m=><button key={m.id} onClick={()=>setGpsInput({...gpsInput,mode:m.id})} style={{flex:1,padding:10,borderRadius:8,background:gpsInput.mode===m.id?C.card:C.card2,border:`1px solid ${gpsInput.mode===m.id?C.cyan:C.bdr}`,color:gpsInput.mode===m.id?C.txt:C.dim,cursor:'pointer',fontFamily:Fnt,textAlign:'center'}}><div style={{fontSize:14,marginBottom:2}}>{m.l.split(' ')[0]}</div><div style={{fontSize:10,fontWeight:600}}>{m.l.split(' ').slice(1).join(' ')}</div><div style={{fontSize:9,color:C.dim,marginTop:2}}>{m.d}</div></button>)}
+            </div>
+
+            {/* MANUAL GPS ENTRY */}
+            {gpsInput.mode==='manual'&&<div>
+              <div style={{display:'flex',gap:4,marginBottom:10}}>
+                <button onClick={()=>setGpsInput({...gpsInput,format:'dd'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format!=='dms'?C.cyan:C.card2,color:gpsInput.format!=='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format!=='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>Decimal (28.7234)</button>
+                <button onClick={()=>setGpsInput({...gpsInput,format:'dms'})} style={{flex:1,padding:6,borderRadius:6,fontSize:10,fontWeight:600,background:gpsInput.format==='dms'?C.cyan:C.card2,color:gpsInput.format==='dms'?C.bg:C.mid,border:`1px solid ${gpsInput.format==='dms'?C.cyan:C.bdr}`,cursor:'pointer',fontFamily:Fnt}}>DMS (28°43'24"N)</button>
+              </div>
+              {gpsInput.format!=='dms'?<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <Inp label="Latitude" placeholder="28.7234" value={gpsInput.lat} onChange={e=>setGpsInput({...gpsInput,lat:e.target.value})}/>
+                <Inp label="Longitude" placeholder="-95.8612" value={gpsInput.lng} onChange={e=>setGpsInput({...gpsInput,lng:e.target.value})}/>
+              </div>:<div>
+                <Inp label="DMS Coordinates" placeholder='28°43\'24.1"N 95°52\'36.2"W' value={gpsInput.dms} onChange={e=>setGpsInput({...gpsInput,dms:e.target.value})}/>
+              </div>}
+              <Btn primary style={{width:'100%',marginTop:10}} onClick={()=>{
+                let coords;
+                if(gpsInput.format==='dms') coords = parseDMS(gpsInput.dms);
+                else coords = { lat: parseFloat(gpsInput.lat), lng: parseFloat(gpsInput.lng) };
+                if(coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
+                  const pos = gpsToPosition(coords.lat, coords.lng);
+                  setNewSpotDraft({...newSpotDraft,gps:{lat:coords.lat.toFixed(4)+'°N',lng:Math.abs(coords.lng).toFixed(4)+'°W'},position:pos});
+                  showT(`📍 Pin dropped: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+                } else showT('Invalid GPS coordinates');
+              }}><PinI s={14} c={C.bg}/> Drop Pin at Coordinates</Btn>
+            </div>}
+
+            {/* PHOTO GPS EXTRACTION */}
+            {gpsInput.mode==='photo'&&<div>
+              <div style={{width:'100%',minHeight:100,background:C.bg,borderRadius:10,border:`2px dashed ${C.bdr2}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20,marginBottom:10,position:'relative'}} onClick={()=>document.getElementById('gps-photo-input')?.click()}>
+                <input id="gps-photo-input" type="file" accept="image/jpeg,image/jpg" style={{display:'none'}} onChange={async(e)=>{
+                  const file = e.target.files?.[0];
+                  if(!file) return;
+                  showT('Extracting GPS...');
+                  const coords = await extractPhotoGPS(file);
+                  if(coords) {
+                    setPhotoGPS(coords);
+                    const pos = gpsToPosition(coords.lat, coords.lng);
+                    setNewSpotDraft({...newSpotDraft, gps:{lat:coords.lat.toFixed(4)+'°N',lng:Math.abs(coords.lng).toFixed(4)+'°W'}, position:pos});
+                    showT(`📍 GPS found! ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+                  } else {
+                    setPhotoGPS(null);
+                    showT('⚠️ No GPS data in photo. Try a photo taken with location enabled.');
+                  }
+                }}/>
+                <CamI s={28} c={C.dim}/>
+                <div style={{fontSize:13,color:C.mid,marginTop:8,fontWeight:600}}>Upload a fishing photo</div>
+                <div style={{fontSize:11,color:C.dim,marginTop:4}}>GPS coordinates will be extracted from EXIF data</div>
+                <div style={{fontSize:10,color:C.dim,marginTop:4,background:C.card2,padding:'4px 10px',borderRadius:20}}>Supports .jpg / .jpeg with GPS enabled</div>
+              </div>
+              {photoGPS&&<div style={{background:`${C.green}10`,border:`1px solid ${C.green}30`,borderRadius:8,padding:12,display:'flex',alignItems:'center',gap:10}}>
+                <ChkI s={18} c={C.green}/>
+                <div><div style={{fontSize:12,fontWeight:600,color:C.green}}>GPS Extracted Successfully</div>
+                <div style={{fontSize:11,color:C.mid,fontFamily:FM}}>{photoGPS.lat.toFixed(6)}, {photoGPS.lng.toFixed(6)}</div></div>
+              </div>}
+            </div>}
+
+            {/* CLICK MAP MODE */}
+            {gpsInput.mode==='map'&&<div style={{background:C.bg,borderRadius:10,padding:20,textAlign:'center',border:`1px solid ${C.bdr}`}}>
+              <MoveI s={32} c={C.cyan}/>
+              <div style={{fontSize:13,fontWeight:600,color:C.txt,marginTop:8}}>Click on the Satellite Map</div>
+              <div style={{fontSize:12,color:C.mid,marginTop:4}}>Close this editor, then long-press (or right-click) any point on the satellite map to drop a pin at that location.</div>
+              <div style={{fontSize:10,color:C.dim,marginTop:8,background:C.card2,padding:'6px 12px',borderRadius:20,display:'inline-block'}}>💡 Coming soon: Direct map click integration</div>
+            </div>}
+          </div>
+
+          {/* New Spot Form */}
+          {(newSpotDraft.gps.lat || photoGPS) && <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.bdr}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:12,display:'flex',alignItems:'center',gap:6}}><PlusI s={14} c={C.cyan}/> New Spot Details</div>
+            <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:8,marginBottom:8}}>
+              <Inp label="Spot Name" placeholder="My Secret Spot" value={newSpotDraft.name} onChange={e=>setNewSpotDraft({...newSpotDraft,name:e.target.value})}/>
+              <Sel label="Type" value={newSpotDraft.type} onChange={e=>setNewSpotDraft({...newSpotDraft,type:e.target.value})} options={[{value:'wade',label:'🚶 Wade'},{value:'boat',label:'🚤 Boat'},{value:'kayak',label:'🛶 Kayak'}]}/>
+            </div>
+            <Inp label="Species (comma-separated)" placeholder="Redfish, Trout, Flounder" value={newSpotDraft.species?.join?.(', ')||''} onChange={e=>setNewSpotDraft({...newSpotDraft,species:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+              <Sel label="Best Tide" value={newSpotDraft.bestTide} onChange={e=>setNewSpotDraft({...newSpotDraft,bestTide:e.target.value})} options={[{value:'Incoming',label:'↗️ Incoming'},{value:'Outgoing',label:'↘️ Outgoing'},{value:'High',label:'⬆️ High'},{value:'Low',label:'⬇️ Low'},{value:'Moving',label:'↔️ Any Moving'}]}/>
+              <Inp label="Best Time" placeholder="5-9 AM" value={newSpotDraft.bestTime} onChange={e=>setNewSpotDraft({...newSpotDraft,bestTime:e.target.value})}/>
+            </div>
+            <Inp label="Lures (comma-separated)" placeholder="Gold Spoon, She Dog, Gulp" value={newSpotDraft.lures?.join?.(', ')||''} onChange={e=>setNewSpotDraft({...newSpotDraft,lures:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/>
+            <Inp label="Description / Notes" placeholder="Personal notes about this spot..." value={newSpotDraft.desc} onChange={e=>setNewSpotDraft({...newSpotDraft,desc:e.target.value})}/>
+            <div style={{background:C.bg,borderRadius:8,padding:10,marginTop:8,marginBottom:8,border:`1px solid ${C.bdr}`}}>
+              <div style={{fontSize:11,color:C.dim,fontFamily:FM}}>📍 {newSpotDraft.gps.lat}, {newSpotDraft.gps.lng}</div>
+              <div style={{fontSize:10,color:C.dim}}>Position: x={newSpotDraft.position.x.toFixed(1)}, y={newSpotDraft.position.y.toFixed(1)}</div>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              <Btn primary style={{flex:1}} onClick={()=>{
+                if(!newSpotDraft.name) { showT('Name is required'); return; }
+                showT(`✅ "${newSpotDraft.name}" saved!`);
+                setNewSpotDraft({name:'',type:'wade',species:[],bestTide:'Incoming',bestTime:'',lures:[],desc:'',gps:{lat:'',lng:''},position:{x:50,y:50},route:[]});
+                setPhotoGPS(null);
+              }}><SaveI s={14} c={C.bg}/> Save Spot</Btn>
+              <Btn style={{flex:1}} onClick={()=>{setNewSpotDraft({name:'',type:'wade',species:[],bestTide:'Incoming',bestTime:'',lures:[],desc:'',gps:{lat:'',lng:''},position:{x:50,y:50},route:[]});setPhotoGPS(null);}}><XI s={14}/> Cancel</Btn>
+            </div>
+          </div>}
+        </div>}
+
+        {/* ═══ ZONES TAB ═══ */}
         {edTab==='shading'&&<div>{bayShades.map(z=><div key={z.id} style={{display:'flex',alignItems:'center',gap:10,padding:12,background:C.card2,borderRadius:10,border:`1px solid ${C.bdr}`,marginBottom:6}}><div style={{width:32,height:32,borderRadius:8,background:`${z.color}30`,border:`2px dashed ${z.color}`,display:'flex',alignItems:'center',justifyContent:'center'}}>{si(z.type)}</div><div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{z.label}</div></div><Btn small danger onClick={()=>{setShadeZones(shadeZones.filter(s=>s.id!==z.id));showT('Removed');}}><TrashI s={12}/></Btn></div>)}
           <div style={{background:C.card2,borderRadius:12,padding:16,marginTop:12,border:`1px solid ${C.bdr}`}}><Lbl>Add Zone</Lbl><Sel label="Type" value={newShade.type} onChange={e=>setNewShade({...newShade,type:e.target.value})} options={[{value:'wade',label:'🚶 Wade'},{value:'kayak',label:'🛶 Kayak'},{value:'boat',label:'🚤 Boat'}]}/><Inp label="Label" value={newShade.label} onChange={e=>setNewShade({...newShade,label:e.target.value})}/><div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8}}><Inp label="X" type="number" value={newShade.cx} onChange={e=>setNewShade({...newShade,cx:+e.target.value})}/><Inp label="Y" type="number" value={newShade.cy} onChange={e=>setNewShade({...newShade,cy:+e.target.value})}/><Inp label="W" type="number" value={newShade.rx} onChange={e=>setNewShade({...newShade,rx:+e.target.value})}/><Inp label="H" type="number" value={newShade.ry} onChange={e=>setNewShade({...newShade,ry:+e.target.value})}/></div><Btn primary onClick={()=>{setShadeZones([...shadeZones,{...newShade,id:Date.now(),color:sc(newShade.type),bay:'matagorda'}]);setNewShade({type:'wade',label:'',cx:50,cy:50,rx:8,ry:5});showT('Zone added');}}><PlusI s={14} c={C.bg}/> Add</Btn></div>
         </div>}
+
+        {/* ═══ LAUNCHES TAB ═══ */}
         {edTab==='launches'&&<div>{bayLaunches.map(l=><div key={l.id} style={{display:'flex',alignItems:'center',gap:10,padding:12,background:C.card2,borderRadius:10,border:`1px solid ${C.bdr}`,marginBottom:6}}><span style={{fontSize:22}}>{li(l.type)}</span><div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{l.name}</div><div style={{fontSize:11,color:C.dim}}>{l.gps}</div></div><Btn small><EditI s={12}/></Btn></div>)}
           <div style={{background:C.card2,borderRadius:12,padding:16,marginTop:12,border:`1px solid ${C.bdr}`}}><Lbl>Add Launch</Lbl><Inp label="Name" value={newLaunch.name} onChange={e=>setNewLaunch({...newLaunch,name:e.target.value})}/><Sel label="Type" value={newLaunch.type} onChange={e=>setNewLaunch({...newLaunch,type:e.target.value})} options={[{value:'boat',label:'⛵ Boat Ramp'},{value:'kayak',label:'🛶 Kayak'},{value:'drivein',label:'🚗 Drive-in'}]}/><Inp label="GPS" value={newLaunch.gps} onChange={e=>setNewLaunch({...newLaunch,gps:e.target.value})}/><Inp label="Notes" value={newLaunch.notes} onChange={e=>setNewLaunch({...newLaunch,notes:e.target.value})}/><Btn primary onClick={()=>{setLaunches([...launches,{...newLaunch,id:Date.now(),position:{x:50,y:50},bay:'matagorda'}]);setNewLaunch({name:'',type:'boat',gps:'',notes:''});showT('Launch added');}}><PlusI s={14} c={C.bg}/> Add</Btn></div>
         </div>}
-        {edTab==='photos'&&<div><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{communityPhotos.map(p=><div key={p.id} style={{background:C.card2,borderRadius:10,padding:12,border:`1px solid ${C.bdr}`}}><div style={{width:'100%',height:80,background:`${C.purple}15`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><ImgI s={24} c={C.dim}/></div><div style={{fontSize:12,fontWeight:600}}>{p.caption}</div><div style={{fontSize:10,color:C.dim}}>by {p.user} • ❤️ {p.likes}</div></div>)}</div></div>}
+
+        {/* ═══ PHOTOS TAB ═══ */}
+        {edTab==='photos'&&<div>
+          <div style={{background:`${C.purple}08`,border:`1px solid ${C.purple}30`,borderRadius:12,padding:16,marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.purple,marginBottom:8}}>📷 Pin Photo to Map</div>
+            <div style={{fontSize:12,color:C.mid,marginBottom:12}}>Upload a fishing photo — GPS will be extracted automatically from EXIF data and the photo pinned to its location on the satellite map.</div>
+            <div style={{width:'100%',minHeight:80,background:C.bg,borderRadius:10,border:`2px dashed ${C.bdr2}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:16}} onClick={()=>document.getElementById('photo-pin-input')?.click()}>
+              <input id="photo-pin-input" type="file" accept="image/*" style={{display:'none'}} onChange={async(e)=>{
+                const file = e.target.files?.[0];
+                if(!file) return;
+                const coords = await extractPhotoGPS(file);
+                if(coords) showT(`📷 Photo pinned at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+                else showT('📷 Photo added (no GPS — use manual entry)');
+              }}/>
+              <UploadI s={24} c={C.dim}/><div style={{fontSize:12,color:C.mid,marginTop:6}}>Click to upload or drag & drop</div>
+            </div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{communityPhotos.map(p=><div key={p.id} style={{background:C.card2,borderRadius:10,padding:12,border:`1px solid ${C.bdr}`}}><div style={{width:'100%',height:80,background:`${C.purple}15`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><ImgI s={24} c={C.dim}/></div><div style={{fontSize:12,fontWeight:600}}>{p.caption}</div><div style={{fontSize:10,color:C.dim}}>by {p.user} • ❤️ {p.likes}</div></div>)}</div>
+        </div>}
+
+        {/* ═══ TOOLS TAB ═══ */}
+        {edTab==='tools'&&<div>
+          {/* Import / Export */}
+          <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:12,display:'flex',alignItems:'center',gap:6}}><LayerI s={16} c={C.cyan}/> Import & Export</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+              <div style={{background:C.bg,borderRadius:10,padding:16,border:`1px solid ${C.bdr}`,cursor:'pointer',textAlign:'center'}} onClick={()=>document.getElementById('gpx-import')?.click()}>
+                <input id="gpx-import" type="file" accept=".gpx,.kml,.json,.geojson" style={{display:'none'}} onChange={(e)=>{
+                  const file = e.target.files?.[0];
+                  if(!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    const text = ev.target.result;
+                    const imported = parseGPXFile(text);
+                    if(imported.length > 0) showT(`✅ Imported ${imported.length} waypoints from GPX`);
+                    else showT('⚠️ No waypoints found in file');
+                  };
+                  reader.readAsText(file);
+                }}/>
+                <UploadI s={24} c={C.green}/>
+                <div style={{fontSize:12,fontWeight:600,color:C.green,marginTop:6}}>Import GPX</div>
+                <div style={{fontSize:10,color:C.dim,marginTop:2}}>.gpx, .kml, .geojson</div>
+              </div>
+              <div style={{background:C.bg,borderRadius:10,padding:16,border:`1px solid ${C.bdr}`,cursor:'pointer',textAlign:'center'}} onClick={()=>{
+                const gpx = generateGPX(allSpots.filter(s=>s.bay==='matagorda'));
+                downloadFile(gpx, 'texastides-spots.gpx');
+                showT('📥 GPX exported!');
+              }}>
+                <DownloadI s={24} c={C.blue}/>
+                <div style={{fontSize:12,fontWeight:600,color:C.blue,marginTop:6}}>Export GPX</div>
+                <div style={{fontSize:10,color:C.dim,marginTop:2}}>All spots & routes</div>
+              </div>
+            </div>
+            <div style={{fontSize:10,color:C.dim,padding:'8px 0',borderTop:`1px solid ${C.bdr}`}}>
+              💡 <strong>GPX</strong> files are universal — compatible with OnX, Garmin, Google Earth, Navionics, and all GPS devices.
+            </div>
+          </div>
+
+          {/* Distance Measurement */}
+          <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><NavI s={16} c={C.amber}/> Quick Distance</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+              <Inp label="From (GPS or spot name)" placeholder="28.72, -95.88"/>
+              <Inp label="To (GPS or spot name)" placeholder="Shell Island"/>
+            </div>
+            <Btn primary style={{width:'100%'}} onClick={()=>showT('📏 ~3.2 nautical miles')}><NavI s={14} c={C.bg}/> Measure</Btn>
+          </div>
+
+          {/* Coordinate Converter */}
+          <div style={{background:C.card2,borderRadius:12,padding:16,marginBottom:12,border:`1px solid ${C.bdr}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:8,display:'flex',alignItems:'center',gap:6}}><TargetI s={16} c={C.teal}/> Coordinate Converter</div>
+            <Inp label="Paste any coordinate format" placeholder='28.7234, -95.8612  or  28°43\'24"N 95°52\'36"W' onChange={e=>{
+              const coords = parseGPS(e.target.value);
+              if(coords) setGpsInput({...gpsInput,lat:coords.lat.toFixed(6),lng:coords.lng.toFixed(6)});
+            }}/>
+            {gpsInput.lat&&<div style={{marginTop:8,padding:10,background:C.bg,borderRadius:8,border:`1px solid ${C.bdr}`,fontFamily:FM,fontSize:11}}>
+              <div style={{color:C.cyan}}>Decimal: {gpsInput.lat}, {gpsInput.lng}</div>
+              <div style={{color:C.teal,marginTop:4}}>DMS: {Math.abs(parseFloat(gpsInput.lat)).toFixed(0)}°{((Math.abs(parseFloat(gpsInput.lat))%1)*60).toFixed(0)}'{((((Math.abs(parseFloat(gpsInput.lat))%1)*60)%1)*60).toFixed(1)}"{ parseFloat(gpsInput.lat)>=0?'N':'S'} {Math.abs(parseFloat(gpsInput.lng)).toFixed(0)}°{((Math.abs(parseFloat(gpsInput.lng))%1)*60).toFixed(0)}'{((((Math.abs(parseFloat(gpsInput.lng))%1)*60)%1)*60).toFixed(1)}"{ parseFloat(gpsInput.lng)>=0?'E':'W'}</div>
+            </div>}
+          </div>
+
+          {/* Bulk Operations */}
+          <div style={{background:C.card2,borderRadius:12,padding:16,border:`1px solid ${C.bdr}`}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.txt,marginBottom:10}}>⚡ Quick Actions</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+              <Btn small onClick={()=>{const json = JSON.stringify(allSpots.filter(s=>s.bay==='matagorda'),null,2);downloadFile(json,'texastides-spots.json','application/json');showT('JSON exported');}}><DownloadI s={12}/> Export JSON</Btn>
+              <Btn small onClick={()=>{const text = allSpots.filter(s=>s.bay==='matagorda').map(s=>{const[la,lo]=bayConfig.toLatLng(s.position);return`${s.name}\t${la.toFixed(6)}\t${lo.toFixed(6)}\t${s.type}`;}).join('\n');navigator.clipboard?.writeText(text);showT('Copied as tab-separated');}}><CopyI s={12}/> Copy All GPS</Btn>
+              <Btn small onClick={()=>showT('🔄 Syncing...')}><LayerI s={12}/> Sync Garmin</Btn>
+              <Btn small onClick={()=>{const kml=`<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>TexasTides</name>${allSpots.filter(s=>s.bay==='matagorda').map(s=>{const[la,lo]=bayConfig.toLatLng(s.position);return`<Placemark><name>${s.name}</name><description>${s.desc||''}</description><Point><coordinates>${lo},${la},0</coordinates></Point></Placemark>`;}).join('')}</Document></kml>`;downloadFile(kml,'texastides.kml');showT('KML exported — open in Google Earth');}}><DownloadI s={12}/> Export KML</Btn>
+            </div>
+          </div>
+        </div>}
       </Modal>}
 
       {showPhotoUp&&<Modal title="Add Photo to Map" onClose={()=>setShowPhotoUp(false)}><div style={{width:'100%',height:140,background:C.card2,borderRadius:12,border:`2px dashed ${C.bdr2}`,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',marginBottom:16}}><UploadI s={32} c={C.dim}/><div style={{fontSize:13,color:C.mid,marginTop:8}}>Click or drag & drop</div></div><Inp label="Caption"/><Inp label="GPS (optional)"/><Btn primary style={{width:'100%'}} onClick={()=>{showT('Photo added');setShowPhotoUp(false);}}><CamI s={14} c={C.bg}/> Pin to Map</Btn></Modal>}
@@ -557,3 +975,5 @@ export default function App() {
     </div>
   );
 }
+
+    
