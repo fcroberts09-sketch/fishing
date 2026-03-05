@@ -227,3 +227,68 @@ export function currentArrowIcon(dir, speed, tideState) {
     iconAnchor: [size / 2, size / 2],
   });
 }
+
+// Wind direction arrows - smaller, showing wind flow across the bay
+export function windArrowIcon(dir, speed) {
+  const opacity = Math.min(0.6, 0.15 + (speed / 30) * 0.45);
+  const size = Math.min(18, 10 + (speed / 30) * 8);
+  const color = speed > 20 ? '#ef4444' : speed > 15 ? '#f59e0b' : speed > 10 ? '#06b6d4' : '#94a3b8';
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:${opacity};transform:rotate(${dir}deg)">
+      <svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round">
+        <line x1="8" y1="14" x2="8" y2="3"/>
+        <polyline points="4,7 8,3 12,7"/>
+      </svg>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Bait shop icon
+export function baitShopIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:6px;background:#16a34a;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">\u{1F3E3}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+// Marina icon
+export function marinaIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:#0284c7;border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 10px #0006;cursor:pointer">\u2693</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+// Kayak launch specific icon
+export function kayakLaunchIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:28px;height:28px;border-radius:8px;background:#0d9488;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">\u{1F6F6}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+// Area label icon (text on map like Google Maps)
+export function areaLabelIcon(name, size, type) {
+  const fontSize = size === 'large' ? 14 : size === 'medium' ? 12 : 10;
+  const fontWeight = size === 'large' ? 700 : size === 'medium' ? 600 : 500;
+  const color = type === 'water' ? '#7dd3fc' : type === 'channel' ? '#93c5fd' : type === 'reef' ? '#fbbf24' : '#d1d5db';
+  const style = type === 'water' || type === 'channel' ? 'italic' : 'normal';
+  const letterSpacing = size === 'large' ? '0.12em' : size === 'medium' ? '0.08em' : '0.04em';
+  const textShadow = '0 0 6px #000, 0 0 12px #000, 0 1px 3px #000';
+  const width = Math.max(80, name.length * (fontSize * 0.65));
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${width}px;text-align:center;pointer-events:none;font-family:'Instrument Sans',sans-serif;font-size:${fontSize}px;font-weight:${fontWeight};color:${color};font-style:${style};letter-spacing:${letterSpacing};text-shadow:${textShadow};white-space:nowrap;opacity:0.7">${name}</div>`,
+    iconSize: [width, fontSize + 4],
+    iconAnchor: [width / 2, (fontSize + 4) / 2],
+  });
+}

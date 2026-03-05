@@ -8,7 +8,8 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute } from './data/bays';
-import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, currentArrowIcon } from './components/MapHelpers';
+import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, currentArrowIcon, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
+import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -54,7 +55,8 @@ export default function App() {
   const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth', DEFAULT_DEPTH_MARKERS);
   const [sandBars, setSandBars] = useLocalStorage('tt_sandbars', DEFAULT_SAND_BARS);
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, currents: true });
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers2', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, currents: true, kayakLaunches: true, baitShops: true, marinas: true, areaLabels: true, windArrows: true });
+  const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);
 
@@ -529,7 +531,7 @@ export default function App() {
             {!isMobile && <div style={{ width: 1, height: 24, background: C.bdr, margin: '0 4px' }} />}
             {undoStack.length > 0 && <button onClick={handleUndo} style={{ padding: isMobile ? '6px 8px' : '7px 10px', borderRadius: 8, background: `${C.amber}20`, border: `1px solid ${C.amber}40`, color: C.amber, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Undo last delete"><UndoI s={14} c={C.amber} /></button>}
             <button onClick={() => setShowEditor(true)} style={{ padding: isMobile ? '6px 8px' : '7px 10px', borderRadius: 8, background: 'transparent', border: 'none', color: C.mid, cursor: 'pointer' }} title="Map Editor"><MapEdI s={16} /></button>
-            {!isMobile && <button onClick={() => setShowSettings(true)} style={{ padding: '7px 10px', borderRadius: 8, background: 'transparent', border: 'none', color: C.mid, cursor: 'pointer' }} title="Settings"><GearI s={16} /></button>}
+            <button onClick={() => setShowSettings(true)} style={{ padding: isMobile ? '6px 8px' : '7px 10px', borderRadius: 8, background: 'transparent', border: 'none', color: C.mid, cursor: 'pointer' }} title="Settings"><GearI s={16} /></button>
           </div>
         </div>
       </header>
@@ -625,6 +627,11 @@ export default function App() {
                 {showLayerPanel && <div style={{ position: 'absolute', top: isMobile ? 90 : 48, right: isMobile ? 8 : 52, zIndex: 1100, background: C.card, border: `1px solid ${C.bdr2}`, borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 32px #000a', minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Map Layers</div>
                   {[
+                    { key: 'areaLabels', label: 'Area Names', icon: '\uD83C\uDF0D', color: '#7dd3fc' },
+                    { key: 'windArrows', label: 'Wind Direction', icon: '\uD83D\uDCA8', color: '#94a3b8' },
+                    { key: 'kayakLaunches', label: 'Kayak Launches', icon: '\uD83D\uDEF6', color: C.teal },
+                    { key: 'baitShops', label: 'Bait Shops', icon: '\uD83C\uDFE3', color: '#16a34a' },
+                    { key: 'marinas', label: 'Harbors/Marinas', icon: '\u2693', color: '#0284c7' },
                     { key: 'wadeLines', label: 'Wade Lines', icon: '\uD83C\uDFA3', color: C.amber },
                     { key: 'castRange', label: 'Cast Range', icon: '\uD83C\uDFAF', color: C.amber },
                     { key: 'wadeZones', label: 'Wade Zones', icon: '\uD83D\uDDFA', color: C.amber },
@@ -813,6 +820,51 @@ export default function App() {
                     {/* Current/wind arrows on water */}
                     {mapLayers.currents && !showRoute && !editMode && cond.currents && cond.currents.arrows.map((a, i) => (
                       <Marker key={'ca' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={currentArrowIcon(a.dir, a.speed, cond.currents.tideState)} interactive={false} />
+                    ))}
+
+                    {/* Wind direction arrows */}
+                    {mapLayers.windArrows && !showRoute && !editMode && weather.windSpeed > 0 && generateWindArrows(weather.windDir, weather.windSpeed, selBay?.id).map((a, i) => (
+                      <Marker key={'wa' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={windArrowIcon(a.dir, a.speed)} interactive={false} />
+                    ))}
+
+                    {/* Bay area name labels */}
+                    {mapLayers.areaLabels && !showRoute && BAY_AREA_LABELS.filter((l) => l.bay === (selBay?.id || 'matagorda')).map((label) => (
+                      <Marker key={label.id} position={[label.lat, label.lng]} icon={areaLabelIcon(label.name, label.size, label.type)} interactive={false} />
+                    ))}
+
+                    {/* Kayak launches */}
+                    {mapLayers.kayakLaunches && !showRoute && KAYAK_LAUNCHES.filter((l) => l.bay === (selBay?.id || 'matagorda')).map((kl) => (
+                      <Marker key={kl.id} position={[kl.lat, kl.lng]} icon={kayakLaunchIcon()}>
+                        <Popup><b>{kl.name}</b><br/><span style={{ fontSize: 11 }}>{kl.notes}</span>{kl.amenities?.length > 0 && <><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{kl.amenities.join(' | ')}</span></>}</Popup>
+                      </Marker>
+                    ))}
+
+                    {/* Boat ramps */}
+                    {mapLayers.launches && !showRoute && BOAT_RAMPS.filter((r) => r.bay === (selBay?.id || 'matagorda')).map((br) => (
+                      <Marker key={br.id} position={[br.lat, br.lng]} icon={launchIcon('boat')}>
+                        <Popup><b>{br.name}</b><br/><span style={{ fontSize: 11 }}>{br.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>Fee: {br.fee} | {br.amenities?.join(', ')}</span></Popup>
+                      </Marker>
+                    ))}
+
+                    {/* Bait shops */}
+                    {mapLayers.baitShops && !showRoute && BAIT_SHOPS.filter((s) => s.bay === (selBay?.id || 'matagorda')).map((bs) => (
+                      <Marker key={bs.id} position={[bs.lat, bs.lng]} icon={baitShopIcon()}>
+                        <Popup><b>{bs.name}</b><br/><span style={{ fontSize: 11 }}>{bs.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{bs.hours}{bs.phone ? ' | ' + bs.phone : ''}</span></Popup>
+                      </Marker>
+                    ))}
+
+                    {/* Marinas / Harbors */}
+                    {mapLayers.marinas && !showRoute && MARINAS.filter((m) => m.bay === (selBay?.id || 'matagorda')).map((ma) => (
+                      <Marker key={ma.id} position={[ma.lat, ma.lng]} icon={marinaIcon()}>
+                        <Popup><b>{ma.name}</b><br/><span style={{ fontSize: 11 }}>{ma.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{ma.slips} slips</span></Popup>
+                      </Marker>
+                    ))}
+
+                    {/* Custom user POIs (permanent) */}
+                    {customPOIs.filter((p) => p.bay === (selBay?.id || 'matagorda')).map((poi) => (
+                      <Marker key={poi.id} position={[poi.lat, poi.lng]} icon={poi.poiType === 'baitshop' ? baitShopIcon() : poi.poiType === 'marina' ? marinaIcon() : poi.poiType === 'kayak' ? kayakLaunchIcon() : launchIcon('boat')} draggable={editMode} eventHandlers={{ dragend: (e) => { const ll = e.target.getLatLng(); setCustomPOIs((prev) => prev.map((p) => p.id === poi.id ? { ...p, lat: ll.lat, lng: ll.lng } : p)); } }}>
+                        <Popup><b>{poi.name}</b><br/><span style={{ fontSize: 11 }}>{poi.notes || ''}</span></Popup>
+                      </Marker>
                     ))}
                   </MapContainer>
 
@@ -1204,10 +1256,55 @@ export default function App() {
         </div>
       </Modal>}
 
-      {showSettings && <Modal title="Settings" sub="API keys & preferences" onClose={() => setShowSettings(false)} isMobile={isMobile}>
+      {showSettings && <Modal title="Settings" sub="API keys, preferences & custom map items" onClose={() => setShowSettings(false)} isMobile={isMobile} wide>
         <div style={{ marginBottom: 20 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}><KeyI s={16} c={C.cyan} /><span style={{ fontWeight: 700 }}>Claude API Key</span></div>
         <Inp label="API Key" isMobile={isMobile} type="password" placeholder="sk-ant-..." value={settings.claudeApiKey} onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })} />
-        <div style={{ background: `${C.cyan}08`, borderRadius: 10, padding: 12, border: `1px solid ${C.cyan}20` }}><p style={{ fontSize: 11, color: C.mid, margin: 0, lineHeight: 1.5 }}>Powers the AI Advisor. Analyzes conditions against your spots. Get yours at console.anthropic.com</p></div></div>
+        <div style={{ background: `${C.cyan}08`, borderRadius: 10, padding: 12, border: `1px solid ${C.cyan}20`, marginBottom: 8 }}><p style={{ fontSize: 11, color: C.mid, margin: 0, lineHeight: 1.5 }}>Powers the AI Advisor. Analyzes conditions against your spots. Get yours at console.anthropic.com</p></div></div>
+
+        {/* PERMANENT CUSTOM MAP ITEMS */}
+        <div style={{ borderTop: `1px solid ${C.bdr}`, paddingTop: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}><PinI s={16} c={C.green} /><span style={{ fontWeight: 700 }}>Permanent Map Items</span></div>
+          <p style={{ fontSize: 11, color: C.mid, marginBottom: 12, lineHeight: 1.5 }}>Add custom bait shops, kayak launches, marinas, or landmarks. These stay on your map permanently until you remove them.</p>
+          <div style={{ display: 'grid', gap: 8, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <Inp label="Name" isMobile={isMobile} placeholder="e.g. Joe's Bait" value={settings._poiName || ''} onChange={(e) => setSettings({ ...settings, _poiName: e.target.value })} />
+              <Sel label="Type" isMobile={isMobile} value={settings._poiType || 'baitshop'} onChange={(e) => setSettings({ ...settings, _poiType: e.target.value })} options={[{ value: 'baitshop', label: 'Bait Shop' }, { value: 'kayak', label: 'Kayak Launch' }, { value: 'marina', label: 'Harbor/Marina' }, { value: 'boatramp', label: 'Boat Ramp' }, { value: 'landmark', label: 'Landmark' }]} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <Inp label="Latitude" isMobile={isMobile} placeholder="e.g. 28.6850" value={settings._poiLat || ''} onChange={(e) => setSettings({ ...settings, _poiLat: e.target.value })} />
+              <Inp label="Longitude" isMobile={isMobile} placeholder="e.g. -95.9650" value={settings._poiLng || ''} onChange={(e) => setSettings({ ...settings, _poiLng: e.target.value })} />
+            </div>
+            <Inp label="Notes (optional)" isMobile={isMobile} placeholder="Hours, phone, details..." value={settings._poiNotes || ''} onChange={(e) => setSettings({ ...settings, _poiNotes: e.target.value })} />
+            <Sel label="Bay" isMobile={isMobile} value={settings._poiBay || selBay?.id || 'matagorda'} onChange={(e) => setSettings({ ...settings, _poiBay: e.target.value })} options={[{ value: 'matagorda', label: 'Matagorda Bay' }, { value: 'galveston', label: 'Galveston Bay' }]} />
+            <Btn primary small isMobile={isMobile} onClick={() => {
+              const name = settings._poiName?.trim();
+              const lat = parseFloat(settings._poiLat);
+              const lng = parseFloat(settings._poiLng);
+              if (!name || isNaN(lat) || isNaN(lng)) { showT('Fill in name, lat, and lng'); return; }
+              const poi = { id: 'cpoi-' + Date.now(), name, lat, lng, poiType: settings._poiType || 'baitshop', notes: settings._poiNotes || '', bay: settings._poiBay || selBay?.id || 'matagorda' };
+              setCustomPOIs((prev) => [...prev, poi]);
+              setSettings({ ...settings, _poiName: '', _poiLat: '', _poiLng: '', _poiNotes: '' });
+              showT('Added ' + name + ' to map permanently!');
+            }}><PlusI s={14} c={C.bg} /> Add to Map</Btn>
+          </div>
+
+          {customPOIs.length > 0 && <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Your Custom Items ({customPOIs.length})</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflow: 'auto' }}>
+              {customPOIs.map((poi) => (
+                <div key={poi.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: C.card2, borderRadius: 8, border: `1px solid ${C.bdr}` }}>
+                  <span style={{ fontSize: 14 }}>{poi.poiType === 'baitshop' ? '\uD83C\uDFE3' : poi.poiType === 'kayak' ? '\uD83D\uDEF6' : poi.poiType === 'marina' ? '\u2693' : poi.poiType === 'boatramp' ? '\uD83D\uDEA4' : '\uD83D\uDCCD'}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{poi.name}</div>
+                    <div style={{ fontSize: 10, color: C.dim }}>{poi.bay} | {poi.lat.toFixed(4)}, {poi.lng.toFixed(4)}</div>
+                  </div>
+                  <button onClick={() => { setCustomPOIs((prev) => prev.filter((p) => p.id !== poi.id)); showT('Removed ' + poi.name); }} style={{ background: `${C.red}20`, border: `1px solid ${C.red}40`, borderRadius: 6, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}><TrashI s={12} c={C.red} /></button>
+                </div>
+              ))}
+            </div>
+          </div>}
+        </div>
+
         <Btn primary isMobile={isMobile} style={{ width: '100%' }} onClick={() => { showT('Settings saved'); setShowSettings(false); }}><SaveI s={14} c={C.bg} /> Save</Btn>
       </Modal>}
 
