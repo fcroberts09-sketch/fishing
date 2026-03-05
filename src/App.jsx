@@ -489,7 +489,7 @@ export default function App() {
     else coords = { lat: parseFloat(gpsInput.lat), lng: parseFloat(gpsInput.lng) };
     if (coords && !isNaN(coords.lat) && !isNaN(coords.lng)) {
       const pos = gpsToPosition(coords.lat, coords.lng);
-      setNewSpotDraft({ ...newSpotDraft, gps: { lat: coords.lat.toFixed(4) + '\u00B0N', lng: Math.abs(coords.lng).toFixed(4) + '\u00B0W' }, position: pos });
+      setNewSpotDraft({ ...newSpotDraft, lat: coords.lat, lng: coords.lng });
       showT('Pin dropped: ' + coords.lat.toFixed(4) + ', ' + coords.lng.toFixed(4));
     } else showT('Invalid GPS coordinates');
   };
