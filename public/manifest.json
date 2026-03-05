@@ -1,0 +1,17 @@
+{
+  "name": "TexasTides - Coastal Fishing Guide",
+  "short_name": "TexasTides",
+  "description": "Texas coastal fishing guide with satellite maps, GPS waypoints, and navigation",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐟</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
