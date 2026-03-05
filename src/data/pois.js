@@ -145,10 +145,10 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
 
 // ─── WAVE HEIGHT CALCULATION ───
 // Simplified SMB (Sverdrup-Munk-Bretschneider) for shallow Texas bays
-// Wind speed in knots, fetch in nautical miles -> wave height in feet
-function calcWaveHeight(windSpeedKnots, fetchNM) {
-  if (windSpeedKnots <= 0 || fetchNM <= 0) return 0;
-  const U = windSpeedKnots * 0.5144; // m/s
+// Wind speed in mph, fetch in nautical miles -> wave height in feet
+function calcWaveHeight(windSpeedMph, fetchNM) {
+  if (windSpeedMph <= 0 || fetchNM <= 0) return 0;
+  const U = windSpeedMph * 0.44704; // mph to m/s
   const F = fetchNM * 1852; // meters
   const g = 9.81;
   const d = 1.2; // avg Texas bay depth ~4ft = 1.2m

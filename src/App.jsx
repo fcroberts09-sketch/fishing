@@ -7,7 +7,7 @@ import { C, Fnt, FM, sc, si, li } from './utils/theme';
 import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGPS, formatGPS } from './utils/geo';
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
-import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
+import { BAY_CONFIGS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
 import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, waveHeightIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
@@ -115,7 +115,15 @@ export default function App() {
   // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
   const cond = useConditions(selBay?.id);
   const weather = cond.weather || { temp: '--', windSpeed: 0, windDir: 0, windDirLabel: '--', windGusts: 0, conditions: 'Loading...', conditionIcon: '\u26C5' };
-  const tide = cond.tides ? { status: cond.tides.tideState === 'incoming' ? 'Incoming' : cond.tides.tideState === 'outgoing' ? 'Outgoing' : 'Slack', next: cond.tides.nextTide ? `${cond.tides.nextTide.type === 'high' ? 'High' : 'Low'} at ${cond.tides.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--', height: cond.tides.currentHeight, strength: cond.tides.tideStrength } : { status: 'Loading...', next: '--' };
+  const tide = cond.tides ? {
+    status: cond.tides.tideState === 'incoming' ? 'Incoming' : cond.tides.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
+    next: cond.tides.nextTide ? `${cond.tides.nextTide.type === 'high' ? 'High' : 'Low'} at ${cond.tides.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--',
+    height: cond.tides.currentHeight,
+    strength: cond.tides.tideStrength,
+    movementFt: cond.tides.movementFt,
+    todayTides: cond.tides.todayTides || [],
+    tomorrowTides: cond.tides.tomorrowTides || [],
+  } : { status: 'Loading...', next: '--', todayTides: [], tomorrowTides: [] };
   const [showConditions, setShowConditions] = useState(false);
   const [showReports, setShowReports] = useState(false);
 
@@ -156,24 +164,11 @@ export default function App() {
 
   // ─── NAVIGATION ROUTE ───
   const routeKey = selSpot && selBay ? `${selBay.id}_${selSpot.id}` : null;
-  const curRoute = useMemo(() => {
-    if (!selSpot || !selBay) return [];
-    // Use saved route if available
-    if (routeKey && savedRoutes[routeKey]) {
-      const saved = savedRoutes[routeKey];
-      return saved.map((wp, i, arr) => {
-        let dist = 0, brng = 0, brngLbl = '';
-        if (i > 0) {
-          dist = haversineNM(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
-          brng = calcBearing(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
-          brngLbl = bearingLabel(brng);
-        }
-        return { ...wp, dist, brng, brngLbl, cumDist: 0 };
-      });
-    }
-    const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
-    const route = generateRoute(selBay.id, sLat, sLng, selSpot.name);
-    return route.map((wp, i, arr) => {
+  const [routeStartPicker, setRouteStartPicker] = useState(false); // show start point picker
+
+  // Compute route with bearing/distance for each waypoint
+  const computeRouteStats = useCallback((wps) => {
+    return wps.map((wp, i, arr) => {
       let dist = 0, brng = 0, brngLbl = '';
       if (i > 0) {
         dist = haversineNM(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
@@ -182,30 +177,94 @@ export default function App() {
       }
       return { ...wp, dist, brng, brngLbl, cumDist: 0 };
     });
-  }, [selSpot, selBay, bayConfig, routeKey, savedRoutes]);
+  }, []);
+
+  const curRoute = useMemo(() => {
+    if (!selSpot || !selBay) return [];
+    // Use saved route if available
+    if (routeKey && savedRoutes[routeKey]) {
+      return computeRouteStats(savedRoutes[routeKey]);
+    }
+    // Default: simple 2-point route from Park Boat to destination
+    const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
+    const parkBoat = launches.find((l) => l.name === 'Park Boat');
+    const startLat = parkBoat?.lat || sLat;
+    const startLng = parkBoat?.lng || sLng;
+    const startName = parkBoat?.name || 'Start';
+    const route = generateRoute(startLat, startLng, startName, sLat, sLng, selSpot.name);
+    return computeRouteStats(route);
+  }, [selSpot, selBay, bayConfig, routeKey, savedRoutes, launches, computeRouteStats]);
 
   useMemo(() => { let cum = 0; curRoute.forEach((wp) => { cum += wp.dist; wp.cumDist = cum; }); }, [curRoute]);
 
-  const saveCurrentRoute = useCallback(() => {
-    if (!routeKey || !curRoute.length) return;
-    const toSave = curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+  // Save route to localStorage
+  const saveRoute = useCallback((wps) => {
+    if (!routeKey) return;
+    const toSave = (wps || curRoute).map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: wp.warnings || [] }));
     setSavedRoutes((prev) => ({ ...prev, [routeKey]: toSave }));
-    setEditingRoute(false);
   }, [routeKey, curRoute, setSavedRoutes]);
 
+  const saveCurrentRoute = useCallback(() => {
+    saveRoute();
+    setEditingRoute(false);
+    showT('Route saved!');
+  }, [saveRoute]);
+
+  // Update a single waypoint field and auto-save
   const updateRouteWaypoint = useCallback((idx, field, value) => {
     if (!routeKey) return;
-    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: wp.warnings || [] }));
     const updated = base.map((wp, i) => i === idx ? { ...wp, [field]: value } : wp);
     setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
   }, [routeKey, savedRoutes, curRoute, setSavedRoutes]);
 
+  // Handle drag of route waypoint
   const handleRouteWaypointDrag = useCallback((idx, e) => {
     const { lat, lng } = e.target.getLatLng();
     if (!routeKey) return;
-    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: wp.warnings || [] }));
     const updated = base.map((wp, i) => i === idx ? { ...wp, lat, lng } : wp);
     setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+  }, [routeKey, savedRoutes, curRoute, setSavedRoutes]);
+
+  // Add a new waypoint after the current step
+  const addRouteWaypoint = useCallback(() => {
+    if (!routeKey || !curRoute.length) return;
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: [] }));
+    const insertAfter = Math.min(routeStep, base.length - 1);
+    const prevWp = base[insertAfter];
+    const nextWp = base[insertAfter + 1] || base[insertAfter];
+    const newWp = {
+      lat: (prevWp.lat + nextWp.lat) / 2,
+      lng: (prevWp.lng + nextWp.lng) / 2,
+      title: 'Waypoint ' + (insertAfter + 2),
+      desc: 'New waypoint',
+      depth: '',
+      warnings: [],
+    };
+    const updated = [...base.slice(0, insertAfter + 1), newWp, ...base.slice(insertAfter + 1)];
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+    setRouteStep(insertAfter + 1);
+  }, [routeKey, savedRoutes, curRoute, routeStep, setSavedRoutes]);
+
+  // Delete a waypoint (can't delete first or last)
+  const deleteRouteWaypoint = useCallback((idx) => {
+    if (!routeKey || curRoute.length <= 2) return;
+    if (idx === 0 || idx === curRoute.length - 1) { showT("Can't delete start/end point"); return; }
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: [] }));
+    const updated = base.filter((_, i) => i !== idx);
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+    if (routeStep >= idx && routeStep > 0) setRouteStep(routeStep - 1);
+  }, [routeKey, savedRoutes, curRoute, routeStep, setSavedRoutes]);
+
+  // Change route start point
+  const setRouteStart = useCallback((lat, lng, name) => {
+    if (!routeKey) return;
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc || '', depth: wp.depth || '', warnings: [] }));
+    const updated = [{ ...base[0], lat, lng, title: name, desc: 'Starting point' }, ...base.slice(1)];
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+    setRouteStartPicker(false);
+    showT('Start point updated!');
   }, [routeKey, savedRoutes, curRoute, setSavedRoutes]);
   const totalRouteNM = curRoute.length > 0 ? curRoute[curRoute.length - 1]?.cumDist || 0 : 0;
   const curWP = curRoute[routeStep];
@@ -582,7 +641,7 @@ export default function App() {
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, fontSize: isMobile ? 11 : 12, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}\u00B0F</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.windSpeed} mph {weather.windDirLabel}{!isMobile && ` (gusts ${weather.windGusts})`}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.height != null ? ` ${tide.height}ft` : ''}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.height != null ? ` ${tide.height}ft` : ''}{tide.movementFt ? ` (${tide.movementFt}ft move)` : ''}</span>
           <span style={{ flexShrink: 0 }}>{cond.moon.icon} {!isMobile ? cond.moon.name : ''}</span>
           {!isMobile && <span style={{ color: C.mid }}>{weather.conditionIcon} {weather.conditions}</span>}
           <button onClick={() => setShowConditions(true)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{cond.loading ? '\u23F3' : '\uD83C\uDF0A'} {isMobile ? '' : 'Conditions'}</button>
@@ -976,8 +1035,8 @@ export default function App() {
                     {editPopup.type === 'zone' && <div style={{ display: 'grid', gap: 12 }}>
                       <div><Lbl>Zone Label</Lbl><input defaultValue={editPopup.data.label || ''} key={editPopup.id + 'zlabel'} onBlur={(e) => updateZone(editPopup.id, 'label', e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
                       <Sel label="Zone Type" isMobile={isMobile} value={editData?.type || 'wade'} onChange={(e) => { updateZone(editPopup.id, 'type', e.target.value); updateZone(editPopup.id, 'color', sc(e.target.value)); }} options={[{ value: 'wade', label: 'Wade Zone' }, { value: 'kayak', label: 'Kayak Zone' }, { value: 'boat', label: 'Boat Zone' }]} />
-                      <div><Lbl>Width (rx): {editData?.rx || editPopup.data.rx}</Lbl><input type="range" min={2} max={20} step={0.5} value={editData?.rx || editPopup.data.rx} onChange={(e) => updateZone(editPopup.id, 'rx', +e.target.value)} style={{ width: '100%', accentColor: C.cyan }} /></div>
-                      <div><Lbl>Height (ry): {editData?.ry || editPopup.data.ry}</Lbl><input type="range" min={2} max={20} step={0.5} value={editData?.ry || editPopup.data.ry} onChange={(e) => updateZone(editPopup.id, 'ry', +e.target.value)} style={{ width: '100%', accentColor: C.cyan }} /></div>
+                      <div><Lbl>Width: {((editData?.radiusLng || editPopup.data.radiusLng || 0.012) * 1000).toFixed(0)}</Lbl><input type="range" min={3} max={30} step={1} value={(editData?.radiusLng || editPopup.data.radiusLng || 0.012) * 1000} onChange={(e) => updateZone(editPopup.id, 'radiusLng', +e.target.value / 1000)} style={{ width: '100%', accentColor: C.cyan }} /></div>
+                      <div><Lbl>Height: {((editData?.radiusLat || editPopup.data.radiusLat || 0.006) * 1000).toFixed(0)}</Lbl><input type="range" min={2} max={20} step={1} value={(editData?.radiusLat || editPopup.data.radiusLat || 0.006) * 1000} onChange={(e) => updateZone(editPopup.id, 'radiusLat', +e.target.value / 1000)} style={{ width: '100%', accentColor: C.cyan }} /></div>
                       <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 11, color: C.mid }}><EyeI s={11} c={C.dim} /> Drag the white handles on the zone edges to resize interactively</div></div>
                     </div>}
                     {editPopup.type === 'wadeline' && (() => { const wl = editData || editPopup.data; return <div style={{ display: 'grid', gap: 12 }}>
@@ -993,7 +1052,7 @@ export default function App() {
                       <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <span style={{ fontSize: 12, color: C.mid }}>{wl.points?.length || 0} points</span>
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button onClick={() => { const lastPt = wl.points?.[wl.points.length - 1]; if (lastPt) { const np = { x: lastPt.x + 2, y: lastPt.y - 2 }; updateWadeLine(editPopup.id, 'points', [...(wl.points || []), np]); showT('Point added'); } }} style={{ padding: '4px 8px', borderRadius: 4, background: C.cyan + '20', border: `1px solid ${C.cyan}40`, color: C.cyan, fontSize: 11, cursor: 'pointer', fontFamily: Fnt }}><PlusI s={10} c={C.cyan} /> Add</button>
+                          <button onClick={() => { const lastPt = wl.points?.[wl.points.length - 1]; if (lastPt) { const np = { lat: (lastPt.lat || 28.71) + 0.001, lng: (lastPt.lng || -95.87) - 0.001 }; updateWadeLine(editPopup.id, 'points', [...(wl.points || []), np]); showT('Point added'); } }} style={{ padding: '4px 8px', borderRadius: 4, background: C.cyan + '20', border: `1px solid ${C.cyan}40`, color: C.cyan, fontSize: 11, cursor: 'pointer', fontFamily: Fnt }}><PlusI s={10} c={C.cyan} /> Add</button>
                           <button onClick={() => { if (wl.points?.length > 2) { updateWadeLine(editPopup.id, 'points', wl.points.slice(0, -1)); showT('Last point removed'); } else { showT('Min 2 points'); } }} style={{ padding: '4px 8px', borderRadius: 4, background: C.red + '20', border: `1px solid ${C.red}40`, color: C.red, fontSize: 11, cursor: 'pointer', fontFamily: Fnt }}><MinusI s={10} c={C.red} /> Remove</button>
                         </div>
                       </div>
@@ -1128,26 +1187,72 @@ export default function App() {
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 10 }}>{selSpot.lures.map((l) => <Badge key={l} color={C.cyan}>{l}</Badge>)}</div>
                       <p style={{ color: C.mid, lineHeight: 1.5, marginBottom: 12 }}>{selSpot.desc}</p>
                       {selSpot.media?.length > 0 && <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>{selSpot.media.map((m, i) => <div key={i} style={{ flex: 1, background: C.card2, borderRadius: 8, padding: 8, border: `1px solid ${C.bdr}`, cursor: 'pointer' }}><div style={{ fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>{m.type === 'video' ? '\uD83C\uDFA5' : '\uD83D\uDCF7'} {m.label}</div></div>)}</div>}
-                      <Btn primary isMobile={isMobile} style={{ width: '100%' }} onClick={startNav}><NavI s={14} c={C.bg} /> Navigate from {BAY_HARBORS[selBay?.id]?.name || 'Harbor'} ({curRoute.length} waypoints, {totalRouteNM.toFixed(1)} NM)</Btn>
+                      <Btn primary isMobile={isMobile} style={{ width: '100%' }} onClick={startNav}><NavI s={14} c={C.bg} /> Navigate ({curRoute.length} waypoints, {totalRouteNM.toFixed(1)} NM)</Btn>
                     </div>
                   </div>
-                  {showRoute && curWP && <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.cyan}40`, padding: 14 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.bg, fontWeight: 700, fontSize: 14 }}>{routeStep + 1}</div>
-                      <div style={{ flex: 1 }}>
-                        {editingRoute ? <input value={curWP.title} onChange={(e) => updateRouteWaypoint(routeStep, 'title', e.target.value)} style={{ width: '100%', padding: '4px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 13, fontWeight: 700, fontFamily: Fnt, outline: 'none' }} /> : <div style={{ fontWeight: 700, fontSize: 13 }}>{curWP.title}</div>}
-                        {editingRoute ? <input value={curWP.depth || ''} onChange={(e) => updateRouteWaypoint(routeStep, 'depth', e.target.value)} placeholder="Depth" style={{ width: '100%', padding: '2px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, fontSize: 11, fontFamily: Fnt, outline: 'none', marginTop: 4 }} /> : <div style={{ fontSize: 11, color: C.cyan }}>Depth: {curWP.depth}</div>}
+                  {showRoute && curRoute.length > 0 && <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.cyan}40`, padding: 14 }}>
+                    {/* Route header with edit toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700 }}>Route ({curRoute.length} pts, {totalRouteNM.toFixed(1)} NM)</div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {editingRoute && <button onClick={addRouteWaypoint} style={{ padding: '5px 8px', borderRadius: 6, background: `${C.cyan}15`, border: `1px solid ${C.cyan}30`, color: C.cyan, cursor: 'pointer', fontSize: 10, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 3 }}><PlusI s={10} c={C.cyan} /> Add Pt</button>}
+                        <button onClick={() => { if (editingRoute) saveCurrentRoute(); else setEditingRoute(true); }} style={{ padding: '5px 10px', borderRadius: 6, background: editingRoute ? C.green + '20' : C.card2, border: `1px solid ${editingRoute ? C.green : C.bdr}`, color: editingRoute ? C.green : C.mid, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}>{editingRoute ? <><SaveI s={12} c={C.green} /> Done</> : <><EditI s={12} /> Edit</>}</button>
                       </div>
-                      <button onClick={() => { if (editingRoute) saveCurrentRoute(); else setEditingRoute(true); }} style={{ padding: '6px 10px', borderRadius: 6, background: editingRoute ? C.green + '20' : C.card2, border: `1px solid ${editingRoute ? C.green : C.bdr}`, color: editingRoute ? C.green : C.mid, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}>{editingRoute ? <><SaveI s={12} c={C.green} /> Save</> : <><EditI s={12} /> Edit</>}</button>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
-                      <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Bearing</div><div style={{ fontWeight: 700, fontSize: 12, color: C.cyan }}>{routeStep > 0 ? Math.round(curWP.brng) + '\u00B0 ' + curWP.brngLbl : '\u2014'}</div></div>
-                      <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Leg Dist</div><div style={{ fontWeight: 700, fontSize: 12, color: C.teal }}>{routeStep > 0 ? curWP.dist.toFixed(1) + ' NM' : '\u2014'}</div></div>
-                      <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Total</div><div style={{ fontWeight: 700, fontSize: 12, color: C.green }}>{curWP.cumDist.toFixed(1)} NM</div></div>
+
+                    {/* Waypoint list - scrollable */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: editingRoute ? 300 : 200, overflow: 'auto', marginBottom: 8 }}>
+                      {curRoute.map((wp, idx) => (
+                        <div key={idx} onClick={() => setRouteStep(idx)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: idx === routeStep ? `${C.cyan}15` : C.card2, border: `1px solid ${idx === routeStep ? C.cyan + '40' : C.bdr}`, cursor: 'pointer' }}>
+                          <div style={{ width: 26, height: 26, borderRadius: '50%', background: idx < routeStep ? C.green : idx === routeStep ? C.cyan : C.bdr, display: 'flex', alignItems: 'center', justifyContent: 'center', color: idx <= routeStep ? C.bg : C.mid, fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{idx === 0 ? '\u2693' : idx === curRoute.length - 1 ? '\u{1F3AF}' : idx}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {editingRoute ? (
+                              <input value={wp.title} onClick={(e) => e.stopPropagation()} onChange={(e) => updateRouteWaypoint(idx, 'title', e.target.value)} style={{ width: '100%', padding: '2px 6px', borderRadius: 4, background: C.card, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 12, fontWeight: 600, fontFamily: Fnt, outline: 'none' }} />
+                            ) : (
+                              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wp.title}</div>
+                            )}
+                            <div style={{ fontSize: 10, color: C.dim }}>
+                              {idx > 0 ? `${Math.round(wp.brng)}\u00B0 ${wp.brngLbl} \u2022 ${wp.dist.toFixed(1)} NM` : 'Start'}
+                              {wp.depth ? ` \u2022 ${wp.depth}` : ''}
+                            </div>
+                          </div>
+                          {editingRoute && idx > 0 && idx < curRoute.length - 1 && (
+                            <button onClick={(e) => { e.stopPropagation(); deleteRouteWaypoint(idx); }} style={{ padding: 4, background: 'none', border: 'none', color: C.red, cursor: 'pointer', flexShrink: 0 }}><TrashI s={14} c={C.red} /></button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {editingRoute ? <textarea value={curWP.desc} onChange={(e) => updateRouteWaypoint(routeStep, 'desc', e.target.value)} rows={2} style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.mid, fontSize: 12, fontFamily: Fnt, outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 8 }} /> : <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, marginBottom: 8 }}>{curWP.desc}</p>}
-                    {curWP.warnings?.length > 0 && <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 6, padding: 8 }}>{curWP.warnings.map((w, i) => <div key={i} style={{ fontSize: 11, color: C.amber }}>{'\u26A0'} {w}</div>)}</div>}
-                    {editingRoute && <div style={{ fontSize: 10, color: C.dim, marginTop: 6 }}>Drag waypoints on map to reposition. Changes auto-save on Save.</div>}
+
+                    {/* Current waypoint detail (when editing) */}
+                    {editingRoute && curWP && (
+                      <div style={{ background: C.card2, borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                          <div><div style={{ fontSize: 9, color: C.dim }}>Depth</div><input value={curWP.depth || ''} onChange={(e) => updateRouteWaypoint(routeStep, 'depth', e.target.value)} placeholder="e.g. 3-5 ft" style={{ width: '100%', padding: '3px 6px', borderRadius: 4, background: C.card, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 11, fontFamily: Fnt, outline: 'none' }} /></div>
+                          <div><div style={{ fontSize: 9, color: C.dim }}>GPS</div><div style={{ fontSize: 10, color: C.mid, fontFamily: FM, padding: '3px 0' }}>{curWP.lat.toFixed(4)}, {curWP.lng.toFixed(4)}</div></div>
+                        </div>
+                        <div><div style={{ fontSize: 9, color: C.dim }}>Notes</div><textarea value={curWP.desc || ''} onChange={(e) => updateRouteWaypoint(routeStep, 'desc', e.target.value)} rows={2} style={{ width: '100%', padding: '4px 6px', borderRadius: 4, background: C.card, border: `1px solid ${C.bdr}`, color: C.mid, fontSize: 11, fontFamily: Fnt, outline: 'none', resize: 'vertical' }} /></div>
+                        <div style={{ fontSize: 9, color: C.dim, marginTop: 6 }}>Drag waypoints on map to reposition</div>
+                      </div>
+                    )}
+
+                    {/* Bearing/distance stats (non-editing mode) */}
+                    {!editingRoute && curWP && routeStep > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
+                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Bearing</div><div style={{ fontWeight: 700, fontSize: 12, color: C.cyan }}>{Math.round(curWP.brng) + '\u00B0 ' + curWP.brngLbl}</div></div>
+                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Leg</div><div style={{ fontWeight: 700, fontSize: 12, color: C.teal }}>{curWP.dist.toFixed(1)} NM</div></div>
+                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Total</div><div style={{ fontWeight: 700, fontSize: 12, color: C.green }}>{curWP.cumDist.toFixed(1)} NM</div></div>
+                      </div>
+                    )}
+
+                    {/* Change start point */}
+                    {editingRoute && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button onClick={() => { if (geo.position) { setRouteStart(geo.position.lat, geo.position.lng, 'My Location'); } else showT('Location not available'); }} style={{ padding: '5px 8px', borderRadius: 6, background: `${C.blue}15`, border: `1px solid ${C.blue}30`, color: C.blue, cursor: 'pointer', fontSize: 10, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 3 }}><LocI s={10} c={C.blue} /> Start from me</button>
+                        {launches.filter((l) => l.bay === selBay?.id).map((l) => (
+                          <button key={l.id} onClick={() => setRouteStart(l.lat, l.lng, l.name)} style={{ padding: '5px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.mid, cursor: 'pointer', fontSize: 10, fontWeight: 600, fontFamily: Fnt }}>{l.name}</button>
+                        ))}
+                      </div>
+                    )}
                   </div>}
                 </> : <>
                   <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.bdr}`, padding: 14 }}>
@@ -1182,25 +1287,70 @@ export default function App() {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
           {/* TIDE SECTION */}
           <div style={{ background: C.card2, borderRadius: 12, padding: 16, border: `1px solid ${C.bdr}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><WaveI s={18} c={tide.status === 'Incoming' ? C.cyan : C.amber} /><span style={{ fontWeight: 700, fontSize: 15 }}>Tides</span><span style={{ fontSize: 11, color: C.dim, marginLeft: 'auto' }}>NOAA {cond.tides?.stationId || ''}</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Status</div><div style={{ fontSize: 16, fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}>{tide.status}</div></div>
-              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Height</div><div style={{ fontSize: 16, fontWeight: 700 }}>{tide.height != null ? `${tide.height} ft` : '--'}</div></div>
-              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Next</div><div style={{ fontSize: 13, fontWeight: 600 }}>{tide.next}</div></div>
-              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Strength</div>
-                <div style={{ height: 6, background: C.bdr, borderRadius: 3, marginTop: 8 }}><div style={{ height: '100%', borderRadius: 3, background: tide.status === 'Incoming' ? C.cyan : C.amber, width: `${(tide.strength || 0) * 100}%`, transition: 'width 1s' }} /></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <WaveI s={18} c={tide.status === 'Incoming' ? C.cyan : C.amber} />
+              <span style={{ fontWeight: 700, fontSize: 15 }}>Tides</span>
+              {cond.tideVerification?.verified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: `${C.green}20`, color: C.green, fontWeight: 600 }}>VERIFIED</span>}
+              <span style={{ fontSize: 10, color: C.dim, marginLeft: 'auto' }}>NOAA</span>
+            </div>
+
+            {/* Current status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Status</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}>{tide.status}</div>
+              </div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Now</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{tide.height != null ? `${tide.height} ft` : '--'}</div>
+              </div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Movement</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.teal }}>{tide.movementFt ? `${tide.movementFt} ft` : '--'}</div>
               </div>
             </div>
-            {cond.tides?.predictions && <div>
-              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Today's Tides</div>
+
+            {/* Next tide + strength bar */}
+            <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}`, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Next</div><div style={{ fontSize: 13, fontWeight: 600 }}>{tide.next}</div></div>
+                <div style={{ textAlign: 'right' }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Strength</div><div style={{ fontSize: 13, fontWeight: 600 }}>{Math.round((tide.strength || 0) * 100)}%</div></div>
+              </div>
+              <div style={{ height: 6, background: C.bdr, borderRadius: 3 }}><div style={{ height: '100%', borderRadius: 3, background: tide.status === 'Incoming' ? C.cyan : C.amber, width: `${(tide.strength || 0) * 100}%`, transition: 'width 1s' }} /></div>
+            </div>
+
+            {/* Today's tide schedule */}
+            {tide.todayTides.length > 0 && <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Today</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {cond.tides.predictions.filter((p) => p.time.toDateString() === new Date().toDateString()).map((p, i) => (
-                  <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 11 }}>
-                    <span style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191' : '\u2193'} {p.height.toFixed(1)}ft</span>
-                    <span style={{ color: C.mid, marginLeft: 6 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                {tide.todayTides.map((p, i) => (
+                  <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 12, flex: '1 1 auto', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber, fontSize: 14 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{p.height.toFixed(1)} ft</div>
+                    <div style={{ color: C.mid, fontSize: 11 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
                   </div>
                 ))}
               </div>
+            </div>}
+
+            {/* Tomorrow's tide schedule */}
+            {tide.tomorrowTides.length > 0 && <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Tomorrow</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {tide.tomorrowTides.map((p, i) => (
+                  <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}10` : `${C.amber}10`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}20`, fontSize: 11, flex: '1 1 auto', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191' : '\u2193'} {p.height.toFixed(1)}ft</div>
+                    <div style={{ color: C.mid, fontSize: 10 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                  </div>
+                ))}
+              </div>
+            </div>}
+
+            {/* Dual-source verification */}
+            {cond.tideVerification && <div style={{ background: C.card, borderRadius: 6, padding: 8, border: `1px solid ${C.bdr}`, fontSize: 10, color: C.dim }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Source verification: <span style={{ color: cond.tideVerification.verified ? C.green : C.amber }}>{cond.tideVerification.confidence}</span></div>
+              {cond.tideVerification.station1 && <div>Station 1: {cond.tideVerification.station1.name} ({cond.tideVerification.station1.state}{cond.tideVerification.station1.height != null ? `, ${cond.tideVerification.station1.height}ft` : ''})</div>}
+              {cond.tideVerification.station2 && <div>Station 2: {cond.tideVerification.station2.name} ({cond.tideVerification.station2.state}{cond.tideVerification.station2.height != null ? `, ${cond.tideVerification.station2.height}ft` : ''})</div>}
             </div>}
           </div>
 
@@ -1218,7 +1368,7 @@ export default function App() {
               <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Wave Estimate</div>
               {(() => { const wm = generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id); const maxH = Math.max(...wm.map(w => w.height)); return <>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{maxH < 0.3 ? 'Flat' : maxH.toFixed(1) + "' waves"} {maxH < 0.3 ? '\u2705' : maxH < 1.0 ? '\u{1F7E1}' : '\u{1F534}'}</div>
-                <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>{weather.windSpeed || 0} kt wind from {weather.windDir || 0}\u00B0 \u2022 {maxH < 0.5 ? 'Great wading' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough - boat only' : 'Dangerous'}</div>
+                <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>{weather.windSpeed || 0} mph wind from {weather.windDir || 0}\u00B0 \u2022 {maxH < 0.5 ? 'Great wading' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough - boat only' : 'Dangerous'}</div>
               </>; })()}
             </div>}
           </div>
@@ -1348,7 +1498,7 @@ export default function App() {
         </div>
         <div style={{ fontSize: 12, color: C.mid, marginBottom: 8 }}>You have {allSpots.filter((s) => s.userAdded).length} custom spots, {launches.filter((l) => l.userAdded).length} custom launches, {shadeZones.filter((z) => z.userAdded).length} custom zones, {wadeLines.filter((w) => w.userAdded).length} custom wade lines saved.</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Btn small isMobile={isMobile} onClick={() => { const gpx = generateGPX(allSpots.filter((s) => s.bay === (selBay?.id || 'matagorda')), bayConfig, selBay?.id || 'matagorda', generateRoute); downloadFile(gpx, 'texastides-spots.gpx'); showT('GPX exported!'); }}><DownloadI s={12} /> Export GPX</Btn>
+          <Btn small isMobile={isMobile} onClick={() => { const gpx = generateGPX(allSpots.filter((s) => s.bay === (selBay?.id || 'matagorda'))); downloadFile(gpx, 'texastides-spots.gpx'); showT('GPX exported!'); }}><DownloadI s={12} /> Export GPX</Btn>
           <Btn small isMobile={isMobile} onClick={() => { const json = JSON.stringify(allSpots, null, 2); downloadFile(json, 'texastides-spots.json', 'application/json'); showT('JSON exported'); }}><DownloadI s={12} /> Export JSON</Btn>
           <Btn small danger isMobile={isMobile} onClick={() => { setAllSpots(DEFAULT_SPOTS); setLaunches(DEFAULT_LAUNCHES); setShadeZones(DEFAULT_SHADE_ZONES); setWadeLines(DEFAULT_WADE_LINES); setCommunityPhotos(DEFAULT_PHOTOS); showT('Reset to defaults'); }}><TrashI s={12} /> Reset All</Btn>
         </div>

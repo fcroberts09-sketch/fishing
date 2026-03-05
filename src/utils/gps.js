@@ -58,19 +58,11 @@ const parseExifGPS = (view, start) => {
 };
 
 // GPX generation
-export const generateGPX = (spots, bayConfig, bayId, generateRoute) => {
+export const generateGPX = (spots) => {
   let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TexasTides">\n  <metadata><name>TexasTides Fishing Spots</name><time>${new Date().toISOString()}</time></metadata>\n`;
   spots.forEach((s) => {
-    const [lat, lng] = bayConfig.toLatLng(s.position);
-    gpx += `  <wpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}"><name>${s.name}</name><desc>${s.desc || ''}</desc><type>${s.type}</type></wpt>\n`;
-    const route = generateRoute(bayId, s.position, s.name);
-    if (route.length > 0) {
-      gpx += `  <rte><name>${s.name} Route</name>\n`;
-      route.forEach((wp) => {
-        const [wlat, wlng] = bayConfig.toLatLng(wp.pos);
-        gpx += `    <rtept lat="${wlat.toFixed(6)}" lon="${wlng.toFixed(6)}"><name>${wp.title}</name><desc>${wp.desc || ''}</desc></rtept>\n`;
-      });
-      gpx += `  </rte>\n`;
+    if (s.lat != null && s.lng != null) {
+      gpx += `  <wpt lat="${s.lat.toFixed(6)}" lon="${s.lng.toFixed(6)}"><name>${s.name}</name><desc>${s.desc || ''}</desc><type>${s.type}</type></wpt>\n`;
     }
   });
   gpx += `</gpx>`;
