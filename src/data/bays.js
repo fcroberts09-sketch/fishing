@@ -115,6 +115,7 @@ export const DEFAULT_LAUNCHES = [
   { id: 4, name: 'Galveston Yacht Basin', type: 'boat', lat: 29.2889, lng: -94.7912, notes: 'Full service marina', bay: 'galveston', isHarbor: true },
   { id: 5, name: 'Texas City Dike', type: 'boat', lat: 29.3834, lng: -94.9012, notes: 'Public ramp, $12', bay: 'galveston' },
   { id: 6, name: 'Eagle Point Marina', type: 'boat', lat: 29.4825, lng: -94.9190, notes: 'Protected launch, $15', bay: 'galveston' },
+  { id: 7, name: 'Park Boat', type: 'boat', lat: 28.63887, lng: -95.903967, notes: 'Boat parking / launch point', bay: 'matagorda' },
 ];
 
 export const DEFAULT_WADE_LINES = [
@@ -156,52 +157,6 @@ export const DEFAULT_PHOTOS = [
   { id: 4, user: 'BayRat42', lat: 29.383, lng: -94.901, caption: 'Sheepshead on fiddler crabs', time: '1 day ago', likes: 14, bay: 'galveston' },
 ];
 
-export const BOATSHARE_LISTINGS = [
-  {
-    id: 1, name: 'Mike R.', age: 'Late 30s', boat: '22ft Haynie BigFoot \u2014 "Reel Deal"',
-    avatar: '\u{1F3A3}', trips: 47, rating: 4.9, date: 'Tomorrow (Tue)', time: '5:30 AM',
-    launch: 'Matagorda Harbor', area: 'East Matagorda \u2014 shell flats', spotsOpen: 2,
-    gasSplit: '$30/person',
-    plan: 'Running to Shell Island area. Gonna wade the shell pads on incoming tide. Targeting reds and trout.',
-    lookingFor: 'experienced',
-    lookingDesc: 'Experienced wade fisherman who can fish independently.',
-    rules: ['Bring own tackle', 'Wade boots required', 'Be at ramp by 5:15', 'No keep if over limit'],
-    vibe: 'Serious fishing.',
-  },
-  {
-    id: 2, name: 'Tommy D.', age: '50s', boat: '24ft Shallow Sport Mod-V \u2014 "Cold Beer"',
-    avatar: '\u{1F37A}', trips: 89, rating: 4.8, date: 'Saturday', time: '6:00 AM',
-    launch: 'Matagorda Harbor', area: 'West Mat \u2014 Bird Island, Army Hole', spotsOpen: 3,
-    gasSplit: '$25/person',
-    plan: 'Drifting reefs and deep holes. Got a 45qt of live shrimp coming.',
-    lookingFor: 'anyone',
-    lookingDesc: "Anybody is welcome. Don't need your own gear.",
-    rules: ['BYOB', 'Sunscreen', '$25 covers bait too', 'Kids welcome'],
-    vibe: 'Low-key day on the water.',
-  },
-  {
-    id: 3, name: 'Sarah & Jake', age: 'Late 20s', boat: '18ft Majek Extreme \u2014 "Skinny Dipper"',
-    avatar: '\u{1F41F}', trips: 23, rating: 4.7, date: 'Sunday', time: '5:00 AM',
-    launch: 'River Road Access', area: 'Colorado River Mouth \u2014 wade trip', spotsOpen: 1,
-    gasSplit: '$20/person',
-    plan: 'Short boat ride to the river mouth. All wading.',
-    lookingFor: 'intermediate',
-    lookingDesc: 'Someone comfortable wading waist-deep in current.',
-    rules: ['Own gear required', 'Wading belt mandatory', 'Share GPS spots from the day'],
-    vibe: 'We fish as a team.',
-  },
-  {
-    id: 4, name: 'Big Ray', age: '60s', boat: '21ft Dargel Skout \u2014 "Pay Day"',
-    avatar: '\u2693', trips: '200+', rating: 5.0, date: 'Wednesday', time: '4:30 AM',
-    launch: 'Matagorda Harbor', area: 'East Mat \u2014 multiple spots', spotsOpen: 1,
-    gasSplit: '$35/person',
-    plan: 'Full day \u2014 leaving in the dark. I fish 3-4 spots depending on conditions.',
-    lookingFor: 'experienced',
-    lookingDesc: 'Serious fisherman only. 30+ years on this bay.',
-    rules: ['There by 4:15 or I leave', 'Own premium gear', 'No phones during fishing', 'Split cleaning at dock'],
-    vibe: 'Old school. No nonsense.',
-  },
-];
 
 // Route generation using GPS coordinates
 export function generateRoute(bayId, targetLat, targetLng, spotName) {

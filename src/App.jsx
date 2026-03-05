@@ -7,7 +7,7 @@ import { C, Fnt, FM, sc, si, li } from './utils/theme';
 import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGPS, formatGPS } from './utils/geo';
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
-import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
+import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
 import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, waveHeightIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
@@ -36,7 +36,6 @@ export default function App() {
   const [spotFilter, setSpotFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAI, setShowAI] = useState(false);
-  const [showBS, setShowBS] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showPhotoUp, setShowPhotoUp] = useState(false);
@@ -496,12 +495,10 @@ export default function App() {
 
   const showT = (m) => { setToast(m); setTimeout(() => setToast(null), 3000); };
   const cpGPS = (g) => { navigator.clipboard?.writeText(`${g.lat}, ${g.lng}`); setCopied(true); setTimeout(() => setCopied(false), 2000); };
-  const openBay = (id) => { setSelBay(BAY_DATA[id]); setPage('bay'); setSelSpot(null); setShowRoute(false); setShowBS(false); setSpotFilter('all'); setSearchQuery(''); };
+  const openBay = (id) => { setSelBay(BAY_DATA[id]); setPage('bay'); setSelSpot(null); setShowRoute(false); setSpotFilter('all'); setSearchQuery(''); };
   const openSpot = useCallback((s) => { setSelSpot(s); setShowRoute(false); setRouteStep(0); setMobilePanel('spot-detail'); }, []);
   const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); };
   const startNav = () => { setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav'); };
-  const lfColor = (t) => ({ experienced: C.amber, intermediate: C.cyan, anyone: C.green }[t] || C.mid);
-  const lfLabel = (t) => ({ experienced: 'Experienced Fisherman', intermediate: 'Intermediate \u2014 Knows Basics', anyone: 'Anyone Welcome \u2014 All Levels' }[t] || t);
 
   const handleLocateMe = () => {
     geo.requestLocation();
@@ -523,13 +520,12 @@ export default function App() {
       {/* HEADER */}
       <header style={{ background: C.card, borderBottom: `1px solid ${C.bdr}`, padding: isMobile ? '8px 12px' : '10px 20px', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10, cursor: 'pointer' }} onClick={() => { setPage('home'); setSelBay(null); setSelSpot(null); setShowBS(false); endNav(); setMobilePanel(null); }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10, cursor: 'pointer' }} onClick={() => { setPage('home'); setSelBay(null); setSelSpot(null); endNav(); setMobilePanel(null); }}>
             <div style={{ width: isMobile ? 30 : 36, height: isMobile ? 30 : 36, borderRadius: isMobile ? 8 : 10, background: `linear-gradient(135deg,${C.cyan},${C.teal})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FishI s={isMobile ? 16 : 20} c="#0b1220" /></div>
             <div><div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 700 }}>TEXAS<span style={{ color: C.cyan }}>TIDES</span></div>{!isMobile && <div style={{ fontSize: 10, color: C.dim, letterSpacing: '0.1em' }}>COASTAL FISHING GUIDE</div>}</div>
           </div>
           <div style={{ display: 'flex', gap: isMobile ? 2 : 4, alignItems: 'center' }}>
             {tripActive && <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: isMobile ? '4px 8px' : '5px 12px', borderRadius: 8, background: `${C.green}20`, border: `1px solid ${C.green}40`, marginRight: 4 }}><ClockI s={13} c={C.green} /><span style={{ fontSize: 11, fontWeight: 700, color: C.green, fontFamily: FM }}>{tripElapsed}</span></div>}
-            {[{ l: 'Map', i: <PinI s={14} />, a: () => { setShowBS(false); if (!selBay) setPage('home'); }, on: !showBS }, { l: 'Boats', i: <UsrI s={14} />, a: () => setShowBS(true), on: showBS }].map((t) => <button key={t.l} onClick={t.a} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 3 : 5, padding: isMobile ? '6px 8px' : '7px 14px', borderRadius: 8, fontSize: isMobile ? 11 : 12, fontWeight: 600, background: t.on ? C.cyan : 'transparent', color: t.on ? C.bg : C.mid, border: 'none', cursor: 'pointer', fontFamily: Fnt }}>{t.i} {isMobile ? '' : t.l}</button>)}
             {!isMobile && <div style={{ width: 1, height: 24, background: C.bdr, margin: '0 4px' }} />}
             {undoStack.length > 0 && <button onClick={handleUndo} style={{ padding: isMobile ? '6px 8px' : '7px 10px', borderRadius: 8, background: `${C.amber}20`, border: `1px solid ${C.amber}40`, color: C.amber, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Undo last delete"><UndoI s={14} c={C.amber} /></button>}
             <button onClick={() => setShowEditor(true)} style={{ padding: isMobile ? '6px 8px' : '7px 10px', borderRadius: 8, background: 'transparent', border: 'none', color: C.mid, cursor: 'pointer' }} title="Map Editor"><MapEdI s={16} /></button>
@@ -553,7 +549,7 @@ export default function App() {
 
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '4px 4px 0' : 20 }}>
         {/* HOME */}
-        {page === 'home' && !showBS && (
+        {page === 'home' && (
           <div>
             <div style={{ marginBottom: isMobile ? 16 : 28, padding: isMobile ? '20px 16px' : '36px 28px', borderRadius: isMobile ? 12 : 16, background: `linear-gradient(135deg,${C.card},#0d2847)`, border: `1px solid ${C.bdr}`, position: 'relative', overflow: 'hidden' }}>
               {!isMobile && <div style={{ position: 'absolute', top: 0, right: 0, width: 300, height: 200, background: `radial-gradient(circle at 100% 0%,${C.cyan}15,transparent 70%)` }} />}
@@ -588,7 +584,7 @@ export default function App() {
         )}
 
         {/* BAY DETAIL */}
-        {page === 'bay' && selBay && !showBS && (
+        {page === 'bay' && selBay && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, marginBottom: isMobile ? 4 : 14 }}>
               <button onClick={() => { setPage('home'); setSelBay(null); setSelSpot(null); setMobilePanel(null); }} style={{ padding: isMobile ? '4px 8px' : '5px 10px', borderRadius: 6, background: C.card, border: `1px solid ${C.bdr}`, color: C.mid, cursor: 'pointer', fontFamily: Fnt, fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 3 }}><ArrowLI s={12} /> {isMobile ? '' : 'Back'}</button>
@@ -1130,48 +1126,6 @@ export default function App() {
           </div>
         )}
 
-        {/* BOATSHARE */}
-        {showBS && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-              <div><h2 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700 }}>BoatShare</h2><p style={{ color: C.mid, fontSize: isMobile ? 12 : 13 }}>Split gas, share the ride</p></div>
-              <Btn primary isMobile={isMobile}><PlusI s={14} c={C.bg} /> Post Trip</Btn>
-            </div>
-            {!isMobile && <p style={{ color: C.dim, fontSize: 12, marginBottom: 20, lineHeight: 1.5 }}>These aren't guides \u2014 just regular fishermen with open spots on their boat. Chip in for gas, bring your gear (or not), and go fishing.</p>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 16 }}>
-              {BOATSHARE_LISTINGS.map((l) => (
-                <div key={l.id} style={{ background: C.card, borderRadius: isMobile ? 12 : 16, border: `1px solid ${C.bdr}`, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
-                    <div style={{ padding: isMobile ? 14 : 20, borderRight: isMobile ? 'none' : `1px solid ${C.bdr}`, borderBottom: isMobile ? `1px solid ${C.bdr}` : 'none' }}>
-                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: isMobile ? 10 : 14 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 12, background: C.card2, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>{l.avatar}</div>
-                        <div><div style={{ fontSize: 17, fontWeight: 700 }}>{l.name}</div><div style={{ fontSize: 12, color: C.mid }}>{l.age} {'\u2022'} <StarI s={11} c={C.amber} filled /> {l.rating} {'\u2022'} {l.trips} trips</div></div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '8px 12px', background: C.card2, borderRadius: 8, marginBottom: 12 }}><AnchorI s={14} c={C.cyan} /><span style={{ fontSize: 13, fontWeight: 500 }}>{l.boat}</span></div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12, color: C.mid, marginBottom: 14 }}>
-                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 10px' }}>{'\uD83D\uDCC5'} {l.date}</div>
-                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 10px' }}>{'\u23F0'} {l.time}</div>
-                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 10px' }}>{'\uD83D\uDCCD'} {l.area}</div>
-                        <div style={{ background: C.card2, borderRadius: 6, padding: '6px 10px' }}>{'\uD83D\uDE80'} {l.launch}</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                        <div style={{ background: `${C.green}15`, borderRadius: 8, padding: '8px 14px', border: `1px solid ${C.green}30` }}><div style={{ fontSize: 10, color: C.green, fontWeight: 700 }}>SPOTS OPEN</div><div style={{ fontSize: 20, fontWeight: 700 }}>{l.spotsOpen}</div></div>
-                        <div style={{ background: `${C.cyan}10`, borderRadius: 8, padding: '8px 14px', border: `1px solid ${C.cyan}30` }}><div style={{ fontSize: 10, color: C.cyan, fontWeight: 700 }}>GAS SPLIT</div><div style={{ fontSize: 20, fontWeight: 700 }}>{l.gasSplit}</div></div>
-                      </div>
-                      <Btn primary isMobile={isMobile} style={{ width: '100%' }}>{'\uD83E\uDD19'} Request to Join</Btn>
-                    </div>
-                    <div style={{ padding: 20 }}>
-                      <div style={{ marginBottom: 16 }}><Lbl>Looking For</Lbl><div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: `${lfColor(l.lookingFor)}10`, borderRadius: 10, border: `1px solid ${lfColor(l.lookingFor)}25` }}><div style={{ width: 10, height: 10, borderRadius: '50%', background: lfColor(l.lookingFor) }} /><div><div style={{ fontSize: 13, fontWeight: 600, color: lfColor(l.lookingFor) }}>{lfLabel(l.lookingFor)}</div><div style={{ fontSize: 11, color: C.mid, lineHeight: 1.4, marginTop: 2 }}>{l.lookingDesc}</div></div></div></div>
-                      <div style={{ marginBottom: 16 }}><Lbl>The Plan</Lbl><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{l.plan}</p></div>
-                      <div style={{ marginBottom: 16 }}><Lbl>The Vibe</Lbl><div style={{ background: C.card2, borderRadius: 10, padding: 12, border: `1px solid ${C.bdr}` }}><p style={{ fontSize: 12, color: C.txt, lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>{'\u201C'}{l.vibe}{'\u201D'}</p></div></div>
-                      <div><Lbl>Rules / Need to Know</Lbl><div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{l.rules.map((r) => <span key={r} style={{ padding: '4px 10px', borderRadius: 6, background: C.card2, fontSize: 11, color: C.mid, border: `1px solid ${C.bdr}` }}>{r}</span>)}</div></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       {/* MODALS */}
