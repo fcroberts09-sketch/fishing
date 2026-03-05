@@ -95,21 +95,21 @@ export const BAY_AREA_LABELS = [
 ];
 
 // ─── WIND ARROW GRID ───
-// Generates wind direction arrows across the bay based on wind data
-// These are smaller, denser arrows showing wind flow across water
+// Wind arrows show direction wind is BLOWING TO (not coming from)
 export function generateWindArrows(windDir, windSpeed, bayId) {
   const arrows = [];
-  // Denser grid than current arrows, smaller arrows
-  for (let gx = 10; gx <= 90; gx += 8) {
-    for (let gy = 15; gy <= 85; gy += 8) {
-      // Slight variation to look natural
-      const localDir = windDir + (Math.sin(gx * 0.1) * 5) + (Math.cos(gy * 0.1) * 5);
+  // Weather API gives direction wind comes FROM — flip 180° for blow direction
+  const blowDir = (windDir + 180) % 360;
+  // Sparser grid to reduce clutter
+  for (let gx = 12; gx <= 88; gx += 11) {
+    for (let gy = 18; gy <= 82; gy += 11) {
+      const localDir = blowDir + (Math.sin(gx * 0.1) * 4) + (Math.cos(gy * 0.1) * 4);
       const edgeFactor = Math.min(gx, 100 - gx, gy, 100 - gy) / 20;
       const localSpeed = windSpeed * Math.min(1, Math.max(0.3, edgeFactor));
-      if (localSpeed > 2) {
+      if (localSpeed > 3) {
         arrows.push({
-          x: gx + (Math.sin(gx + gy) * 1.5),
-          y: gy + (Math.cos(gx + gy) * 1.5),
+          x: gx + (Math.sin(gx + gy) * 1.2),
+          y: gy + (Math.cos(gx + gy) * 1.2),
           dir: localDir,
           speed: localSpeed,
         });
@@ -117,4 +117,64 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
     }
   }
   return arrows;
+}
+
+// ─── WAVE HEIGHT CALCULATION ───
+// Simplified SMB (Sverdrup-Munk-Bretschneider) for shallow Texas bays
+// Wind speed in knots, fetch in nautical miles → wave height in feet
+function calcWaveHeight(windSpeedKnots, fetchNM) {
+  if (windSpeedKnots <= 0 || fetchNM <= 0) return 0;
+  const U = windSpeedKnots * 0.5144; // m/s
+  const F = fetchNM * 1852; // meters
+  const g = 9.81;
+  const d = 1.2; // avg Texas bay depth ~4ft = 1.2m
+  const a = 0.53 * Math.pow((g * d) / (U * U), 0.75);
+  const b = 0.00565 * Math.pow((g * F) / (U * U), 0.5);
+  const Hs = 0.283 * (U * U / g) * Math.tanh(a) * Math.tanh(b / Math.tanh(a));
+  return Math.round(Hs * 3.281 * 10) / 10; // meters to feet
+}
+
+// Fetch distances (NM) per 8 compass directions [N,NE,E,SE,S,SW,W,NW]
+const BAY_FETCH = {
+  matagorda: [3, 5, 8, 6, 4, 3, 2, 2],
+  galveston: [4, 6, 10, 8, 5, 4, 3, 3],
+};
+
+function getFetch(bayId, windFromDir) {
+  const fetches = BAY_FETCH[bayId] || BAY_FETCH.matagorda;
+  const sector = Math.round(((windFromDir % 360) + 360) % 360 / 45) % 8;
+  return fetches[sector];
+}
+
+// Generate wave height numbers to display on the bay
+export function generateWaveMarkers(windDir, windSpeed, bayId) {
+  const markers = [];
+  const baseFetch = getFetch(bayId, windDir);
+
+  // Key positions across the bay with local fetch multipliers
+  const positions = [
+    { x: 30, y: 35, mult: 1.0 },
+    { x: 50, y: 50, mult: 0.9 },
+    { x: 70, y: 40, mult: 1.0 },
+    { x: 25, y: 60, mult: 0.5 },
+    { x: 55, y: 28, mult: 0.85 },
+    { x: 75, y: 62, mult: 0.55 },
+    { x: 42, y: 42, mult: 0.8 },
+    { x: 62, y: 58, mult: 0.5 },
+  ];
+
+  for (const pos of positions) {
+    const edgeFactor = Math.min(pos.x, 100 - pos.x, pos.y, 100 - pos.y) / 25;
+    const localFetch = baseFetch * pos.mult * Math.min(1, Math.max(0.3, edgeFactor));
+    const height = calcWaveHeight(windSpeed, localFetch);
+
+    markers.push({
+      x: pos.x,
+      y: pos.y,
+      height,
+      label: height < 0.3 ? 'Flat' : height.toFixed(1) + "'",
+    });
+  }
+
+  return markers;
 }

@@ -8,8 +8,8 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute } from './data/bays';
-import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, currentArrowIcon, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
-import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows } from './data/pois';
+import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, waveHeightIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
+import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -55,7 +55,7 @@ export default function App() {
   const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth', DEFAULT_DEPTH_MARKERS);
   const [sandBars, setSandBars] = useLocalStorage('tt_sandbars', DEFAULT_SAND_BARS);
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers2', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, currents: true, kayakLaunches: true, baitShops: true, marinas: true, areaLabels: true, windArrows: true });
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers2', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, kayakLaunches: true, baitShops: true, marinas: true, areaLabels: true, windArrows: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);
@@ -641,7 +641,6 @@ export default function App() {
                     { key: 'spots', label: 'Fishing Spots', icon: '\uD83D\uDCCD', color: C.cyan },
                     { key: 'launches', label: 'Launches', icon: '\u2693', color: C.teal },
                     { key: 'photos', label: 'Photos', icon: '\uD83D\uDCF7', color: C.purple },
-                    { key: 'currents', label: 'Current Arrows', icon: '\u{1F30A}', color: C.cyan },
                   ].map((layer) => (
                     <button key={layer.key} onClick={() => toggleLayer(layer.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 4px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 6, fontFamily: Fnt }}>
                       <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${mapLayers[layer.key] ? layer.color : C.dim}`, background: mapLayers[layer.key] ? layer.color + '30' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, flexShrink: 0 }}>{mapLayers[layer.key] ? '\u2713' : ''}</div>
@@ -651,24 +650,25 @@ export default function App() {
                 </div>}
 
                 <div style={{ height: isMobile ? 'calc(100vh - 140px)' : 500, position: 'relative', minHeight: isMobile ? 400 : 400 }}>
-                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={true} touchZoom={true} maxZoom={20} minZoom={9}>
+                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={false} tapTolerance={15} touchZoom={true} maxZoom={20} minZoom={9} inertia={true} inertiaDeceleration={3000} inertiaMaxSpeed={1500} easeLinearity={0.25} bounceAtZoomLimits={false} wheelPxPerZoomLevel={120} zoomSnap={0.5} zoomDelta={0.5}>
                     <LayersControl position="topright">
                       <LayersControl.BaseLayer checked name="HD Satellite">
-                        <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={19} attribution="Esri" />
+                        <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={19} attribution="Esri" updateWhenZooming={false} updateWhenIdle={true} keepBuffer={4} />
                       </LayersControl.BaseLayer>
                       <LayersControl.BaseLayer name="Google Satellite">
-                        <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" />
+                        <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" updateWhenZooming={false} updateWhenIdle={true} keepBuffer={4} />
                       </LayersControl.BaseLayer>
                       <LayersControl.BaseLayer name="Google Hybrid">
-                        <TileLayer url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" />
+                        <TileLayer url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" updateWhenZooming={false} updateWhenIdle={true} keepBuffer={4} />
                       </LayersControl.BaseLayer>
                       <LayersControl.BaseLayer name="USGS Aerial">
-                        <TileLayer url="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}" maxZoom={16} attribution="USGS" />
+                        <TileLayer url="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}" maxZoom={16} attribution="USGS" updateWhenZooming={false} updateWhenIdle={true} keepBuffer={4} />
                       </LayersControl.BaseLayer>
                     </LayersControl>
 
                     {routeBounds && <FitBounds bounds={routeBounds} />}
                     {flyToUser && geo.position && <FlyToLocation position={geo.position} />}
+                    <EditModeZoomControl editMode={editMode} />
                     <MapClickHandler onRightClick={handleMapRightClick} onLeftClick={handleMapLeftClick} editMode={editMode} isMobile={isMobile} />
 
                     {/* USER LOCATION */}
@@ -820,14 +820,17 @@ export default function App() {
                       </Marker>
                     ))}
 
-                    {/* Current/wind arrows on water */}
-                    {mapLayers.currents && !showRoute && !editMode && cond.currents && cond.currents.arrows.map((a, i) => (
-                      <Marker key={'ca' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={currentArrowIcon(a.dir, a.speed, cond.currents.tideState)} interactive={false} />
-                    ))}
+                    {/* Wind direction arrows + wave heights */}
+
 
                     {/* Wind direction arrows */}
                     {mapLayers.windArrows && !showRoute && !editMode && weather.windSpeed > 0 && generateWindArrows(weather.windDir, weather.windSpeed, selBay?.id).map((a, i) => (
                       <Marker key={'wa' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={windArrowIcon(a.dir, a.speed)} interactive={false} />
+                    ))}
+
+                    {/* Wave height numbers on the bay */}
+                    {mapLayers.windArrows && !showRoute && !editMode && generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id).map((w, i) => (
+                      <Marker key={'wv' + i} position={bayConfig.toLatLng({ x: w.x, y: w.y })} icon={waveHeightIcon(w.label, w.height)} interactive={false} />
                     ))}
 
                     {/* Bay area name labels */}
@@ -1204,10 +1207,12 @@ export default function App() {
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Gusts</div><div style={{ fontSize: 16, fontWeight: 700 }}>{weather.windGusts} <span style={{ fontSize: 11, fontWeight: 400 }}>mph</span></div></div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}`, gridColumn: '1 / -1' }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Conditions</div><div style={{ fontSize: 15, fontWeight: 600 }}>{weather.conditionIcon} {weather.conditions}{weather.humidity ? ` \u2022 ${weather.humidity}% humidity` : ''}</div></div>
             </div>
-            {cond.currents && <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
-              <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Bay Current</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{cond.currents.combined.speed} kts @ {cond.currents.combined.dir}{'\u00B0'}</div>
-              <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>Wind-driven: {cond.currents.windCurrent.speed.toFixed(2)} kts + Tide: {cond.currents.tideCurrent.speed.toFixed(1)} kts</div>
+            {weather && <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
+              <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Wave Estimate</div>
+              {(() => { const wm = generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id); const maxH = Math.max(...wm.map(w => w.height)); return <>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{maxH < 0.3 ? 'Flat' : maxH.toFixed(1) + "' waves"} {maxH < 0.3 ? '\u2705' : maxH < 1.0 ? '\u{1F7E1}' : '\u{1F534}'}</div>
+                <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>{weather.windSpeed || 0} kt wind from {weather.windDir || 0}\u00B0 \u2022 {maxH < 0.5 ? 'Great wading' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough - boat only' : 'Dangerous'}</div>
+              </>; })()}
             </div>}
           </div>
 
@@ -1263,6 +1268,18 @@ export default function App() {
         <div style={{ marginBottom: 20 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}><KeyI s={16} c={C.cyan} /><span style={{ fontWeight: 700 }}>Claude API Key</span></div>
         <Inp label="API Key" isMobile={isMobile} type="password" placeholder="sk-ant-..." value={settings.claudeApiKey} onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })} />
         <div style={{ background: `${C.cyan}08`, borderRadius: 10, padding: 12, border: `1px solid ${C.cyan}20`, marginBottom: 8 }}><p style={{ fontSize: 11, color: C.mid, margin: 0, lineHeight: 1.5 }}>Powers the AI Advisor. Analyzes conditions against your spots. Get yours at console.anthropic.com</p></div></div>
+
+        {/* MAP EDITOR MODE */}
+        <div style={{ borderTop: `1px solid ${C.bdr}`, paddingTop: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MapEdI s={16} c={C.amber} /><span style={{ fontWeight: 700 }}>Map Editor Mode</span></div>
+            <button onClick={() => { setEditMode(!editMode); setShowSettings(false); }} style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt }}>{editMode ? 'Exit Editor' : 'Enter Editor'}</button>
+          </div>
+          <p style={{ fontSize: 11, color: C.mid, marginBottom: 8, lineHeight: 1.5 }}>Double-click the map to add markers at exact GPS coordinates. Drag to reposition. All coordinates are real GPS (lat/lng).</p>
+          <div style={{ background: `${C.amber}10`, border: `1px solid ${C.amber}25`, borderRadius: 8, padding: 10, fontSize: 11, color: C.amber, lineHeight: 1.5 }}>
+            <b>Controls:</b> Double-click = add marker • Click marker = edit • Drag = move • Long-press on mobile
+          </div>
+        </div>
 
         {/* PERMANENT CUSTOM MAP ITEMS */}
         <div style={{ borderTop: `1px solid ${C.bdr}`, paddingTop: 16, marginBottom: 16 }}>

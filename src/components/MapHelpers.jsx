@@ -22,6 +22,19 @@ export function FitBounds({ bounds }) {
   return null;
 }
 
+// Disable double-click zoom when in edit mode (so double-click adds markers)
+export function EditModeZoomControl({ editMode }) {
+  const map = useMap();
+  useEffect(() => {
+    if (editMode) {
+      map.doubleClickZoom.disable();
+    } else {
+      map.doubleClickZoom.enable();
+    }
+  }, [editMode, map]);
+  return null;
+}
+
 export function MapClickHandler({ onRightClick, onLeftClick, editMode, isMobile }) {
   const pressTimer = useRef(null);
   const pressPos = useRef(null);
@@ -59,6 +72,7 @@ export function MapClickHandler({ onRightClick, onLeftClick, editMode, isMobile 
 
   useMapEvents({
     contextmenu: (e) => { if (editMode) onRightClick(e); },
+    dblclick: (e) => { if (editMode) { e.originalEvent.preventDefault(); onRightClick(e); } },
     click: () => { onLeftClick(); },
   });
   return null;
@@ -282,6 +296,21 @@ export function kayakLaunchIcon(mobile) {
     html: `<div style="width:${size}px;height:${size}px;border-radius:6px;background:#0d9488;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 10 : 13}px;box-shadow:0 1px 4px #0006;cursor:pointer">\u{1F6F6}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Wave height label on the bay
+export function waveHeightIcon(label, height) {
+  const isFlat = height < 0.3;
+  const color = isFlat ? '#22c55e' : height < 0.5 ? '#84cc16' : height < 1.0 ? '#eab308' : height < 1.5 ? '#f97316' : '#ef4444';
+  const bg = isFlat ? '#22c55e20' : `${color}25`;
+  const fs = isFlat ? 9 : 10;
+  const text = isFlat ? 'Flat' : label;
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:${bg};border:1px solid ${color}60;border-radius:4px;padding:1px 5px;font-size:${fs}px;font-weight:600;color:${color};font-family:'JetBrains Mono',monospace;white-space:nowrap;pointer-events:none;text-shadow:0 0 4px #000,0 0 8px #000;opacity:0.8">${text}</div>`,
+    iconSize: [36, 16],
+    iconAnchor: [18, 8],
   });
 }
 
