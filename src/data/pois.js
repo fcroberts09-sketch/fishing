@@ -1,5 +1,3 @@
-import { C } from '../utils/theme';
-
 // ─── KAYAK LAUNCHES ───
 // Real kayak launch locations for Matagorda and Galveston bay systems
 export const KAYAK_LAUNCHES = [
