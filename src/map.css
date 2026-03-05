@@ -5,20 +5,27 @@
   will-change: transform;
 }
 
+/* Sharper satellite tiles on retina, prevent flicker */
 .leaflet-tile {
-  will-change: auto;
-  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  backface-visibility: hidden;
 }
 
-/* Smooth panning on mobile */
+/* Smooth panning on mobile - contain layout for perf */
 .leaflet-container {
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
+  contain: layout style paint;
 }
 
 /* Prevent iOS bounce / overscroll trapping */
 .leaflet-container.leaflet-touch-drag {
   touch-action: none;
+}
+
+/* GPU-accelerate panes during pan/zoom */
+.leaflet-pane {
+  will-change: transform;
 }
 
 /* Crisp zoom transitions */
@@ -33,10 +40,16 @@
   transition: opacity 0.15s !important;
 }
 
-/* Reduce marker jank during pan */
+/* Markers: use backface-visibility instead of will-change to save GPU memory */
 .leaflet-marker-icon,
 .leaflet-marker-shadow {
-  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Optimize SVG overlay rendering (polylines, polygons) */
+.leaflet-overlay-pane svg {
+  shape-rendering: optimizeSpeed;
 }
 
 /* Hide zoom control on mobile to save space */
