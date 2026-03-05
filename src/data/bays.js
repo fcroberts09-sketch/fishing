@@ -90,9 +90,35 @@ export const DEFAULT_LAUNCHES = [
 ];
 
 export const DEFAULT_WADE_LINES = [
-  { id: 1, bay: 'matagorda', label: 'Shell Island Wade', points: [{ x: 72, y: 32 }, { x: 75, y: 26 }, { x: 78, y: 22 }], color: C.amber, castRange: 40 },
-  { id: 2, bay: 'matagorda', label: 'River Mouth Wade', points: [{ x: 13, y: 64 }, { x: 16, y: 60 }, { x: 19, y: 57 }], color: C.amber, castRange: 40 },
-  { id: 3, bay: 'galveston', label: 'Dike Rocks Wade', points: [{ x: 48, y: 62 }, { x: 52, y: 58 }, { x: 55, y: 55 }], color: C.amber, castRange: 40 },
+  { id: 1, bay: 'matagorda', label: 'Shell Island Wade', points: [{ x: 72, y: 32 }, { x: 75, y: 26 }, { x: 78, y: 22 }], color: C.amber, castRange: 40, direction: 'N', bottomType: 'shell', notes: 'Wade north along shell pad edge. Best on incoming.' },
+  { id: 2, bay: 'matagorda', label: 'River Mouth Wade', points: [{ x: 13, y: 64 }, { x: 16, y: 60 }, { x: 19, y: 57 }], color: C.amber, castRange: 40, direction: 'N', bottomType: 'sand', notes: 'Follow the sand bar north. Watch current on outgoing.' },
+  { id: 3, bay: 'galveston', label: 'Dike Rocks Wade', points: [{ x: 48, y: 62 }, { x: 52, y: 58 }, { x: 55, y: 55 }], color: C.amber, castRange: 40, direction: 'NE', bottomType: 'reef', notes: 'Rock line wade. Watch footing near jetty.' },
+];
+
+export const DEFAULT_DEPTH_MARKERS = [
+  { id: 1, bay: 'matagorda', position: { x: 74, y: 28 }, depth: 2, bottomType: 'shell', note: 'Shell pad edge' },
+  { id: 2, bay: 'matagorda', position: { x: 76, y: 24 }, depth: 1.5, bottomType: 'sand', note: 'Sand bar top' },
+  { id: 3, bay: 'matagorda', position: { x: 70, y: 35 }, depth: 4, bottomType: 'mud', note: 'Gut between bars' },
+  { id: 4, bay: 'matagorda', position: { x: 15, y: 62 }, depth: 3, bottomType: 'sand', note: 'River mouth channel edge' },
+  { id: 5, bay: 'matagorda', position: { x: 18, y: 58 }, depth: 1, bottomType: 'sand', note: 'Exposed at low tide' },
+  { id: 6, bay: 'matagorda', position: { x: 25, y: 45 }, depth: 5, bottomType: 'mud', note: 'Deep hole' },
+  { id: 7, bay: 'galveston', position: { x: 53, y: 56 }, depth: 3.5, bottomType: 'reef', note: 'Dike rocks dropoff' },
+  { id: 8, bay: 'galveston', position: { x: 56, y: 50 }, depth: 6, bottomType: 'mud', note: 'Channel depth' },
+  { id: 9, bay: 'galveston', position: { x: 50, y: 60 }, depth: 2, bottomType: 'sand', note: 'Dike flat' },
+];
+
+export const DEFAULT_SAND_BARS = [
+  { id: 1, bay: 'matagorda', label: 'Shell Island Bar', points: [{ x: 70, y: 30 }, { x: 73, y: 25 }, { x: 78, y: 22 }, { x: 80, y: 25 }, { x: 77, y: 30 }, { x: 73, y: 33 }], depth: '1-2', note: 'Exposed at low tide. Prime wade area.' },
+  { id: 2, bay: 'matagorda', label: 'River Mouth Sand Bar', points: [{ x: 12, y: 63 }, { x: 15, y: 59 }, { x: 19, y: 56 }, { x: 21, y: 59 }, { x: 17, y: 63 }, { x: 14, y: 65 }], depth: '0.5-2', note: 'Shifts with current. Check before wading.' },
+  { id: 3, bay: 'galveston', label: 'Dollar Reef Flat', points: [{ x: 52, y: 54 }, { x: 56, y: 50 }, { x: 60, y: 52 }, { x: 58, y: 56 }, { x: 54, y: 57 }], depth: '2-3', note: 'Oyster reef edges. Wade boots required.' },
+];
+
+export const DEFAULT_SHELL_PADS = [
+  { id: 1, bay: 'matagorda', position: { x: 75, y: 27 }, shellType: 'heavy', radius: 5, label: 'Shell Island Main Pad', note: 'Dense shell. Reds stack here on incoming.' },
+  { id: 2, bay: 'matagorda', position: { x: 71, y: 33 }, shellType: 'scattered', radius: 8, label: 'South Scatter Shell', note: 'Scattered shell over sand. Good for trout.' },
+  { id: 3, bay: 'matagorda', position: { x: 16, y: 61 }, shellType: 'scattered', radius: 4, label: 'River Mouth Shell', note: 'Light scatter near sand bar edge.' },
+  { id: 4, bay: 'galveston', position: { x: 55, y: 53 }, shellType: 'reef', radius: 6, label: 'Dollar Reef Oysters', note: 'Live oyster reef. Watch your feet.' },
+  { id: 5, bay: 'galveston', position: { x: 50, y: 58 }, shellType: 'scattered', radius: 3, label: 'Dike Scatter', note: 'Light shell near jetty rocks.' },
 ];
 
 export const DEFAULT_PHOTOS = [

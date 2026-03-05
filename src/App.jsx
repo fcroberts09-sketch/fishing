@@ -7,9 +7,9 @@ import { C, Fnt, FM, sc, si, li } from './utils/theme';
 import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGPS, formatGPS } from './utils/geo';
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
-import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, generateRoute } from './data/bays';
-import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon } from './components/MapHelpers';
-import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI } from './components/Icons';
+import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute } from './data/bays';
+import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor } from './components/MapHelpers';
+import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useGeolocation } from './hooks/useGeolocation';
@@ -50,6 +50,12 @@ export default function App() {
   const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
+  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth', DEFAULT_DEPTH_MARKERS);
+  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars', DEFAULT_SAND_BARS);
+  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads', DEFAULT_SHELL_PADS);
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true });
+  const [showLayerPanel, setShowLayerPanel] = useState(false);
+  const [drawingPolygon, setDrawingPolygon] = useState(null);
 
   // ─── TRIP TIMER ───
   const [tripActive, setTripActive] = useState(false);
@@ -76,6 +82,9 @@ export default function App() {
     else if (last.type === 'zone') setShadeZones((p) => [...p, last.data]);
     else if (last.type === 'wadeline') setWadeLines((p) => [...p, last.data]);
     else if (last.type === 'photo') setCommunityPhotos((p) => [...p, last.data]);
+    else if (last.type === 'depth') setDepthMarkers((p) => [...p, last.data]);
+    else if (last.type === 'sandbar') setSandBars((p) => [...p, last.data]);
+    else if (last.type === 'shellpad') setShellPads((p) => [...p, last.data]);
     setUndoStack((p) => p.slice(0, -1));
     showT('Restored!');
   };
@@ -126,6 +135,9 @@ export default function App() {
   const bayLaunches = launches.filter((l) => l.bay === (selBay?.id || 'matagorda'));
   const bayWadeLines = wadeLines.filter((w) => w.bay === (selBay?.id || 'matagorda'));
   const bayPhotos = communityPhotos.filter((p) => p.bay === (selBay?.id || 'matagorda'));
+  const bayDepthMarkers = depthMarkers.filter((d) => d.bay === (selBay?.id || 'matagorda'));
+  const baySandBars = sandBars.filter((s) => s.bay === (selBay?.id || 'matagorda'));
+  const bayShellPads = shellPads.filter((s) => s.bay === (selBay?.id || 'matagorda'));
 
   // ─── FAVORITES ───
   const toggleFavorite = (spotId) => {
@@ -249,8 +261,11 @@ export default function App() {
     else if (type === 'zone') data = shadeZones.find((z) => z.id === id);
     else if (type === 'wadeline') data = wadeLines.find((w) => w.id === id);
     else if (type === 'photo') data = communityPhotos.find((p) => p.id === id);
+    else if (type === 'depth') data = depthMarkers.find((d) => d.id === id);
+    else if (type === 'sandbar') data = sandBars.find((sb) => sb.id === id);
+    else if (type === 'shellpad') data = shellPads.find((sp) => sp.id === id);
     if (data) { setEditPopup({ type, id, data: { ...data } }); setCtxMenu(null); }
-  }, [allSpots, launches, shadeZones, wadeLines, communityPhotos]);
+  }, [allSpots, launches, shadeZones, wadeLines, communityPhotos, depthMarkers, sandBars, shellPads]);
 
   const handleMapRightClick = (e) => {
     e.originalEvent.preventDefault();
@@ -258,6 +273,12 @@ export default function App() {
       const pos = latLngToPosition(e.latlng.lat, e.latlng.lng);
       setDrawingLine((prev) => ({ ...prev, points: [...prev.points, pos] }));
       showT('Point ' + (drawingLine.points.length + 1) + ' added');
+      return;
+    }
+    if (drawingPolygon) {
+      const pos = latLngToPosition(e.latlng.lat, e.latlng.lng);
+      setDrawingPolygon((prev) => ({ ...prev, points: [...prev.points, pos] }));
+      showT('Point ' + (drawingPolygon.points.length + 1) + ' added');
       return;
     }
     setCtxMenu({ lat: e.latlng.lat, lng: e.latlng.lng, x: e.containerPoint.x, y: e.containerPoint.y });
@@ -287,6 +308,27 @@ export default function App() {
       setCtxMenu(null);
       return;
     }
+    if (type === 'depth') {
+      const newD = { id, bay, position: pos, depth: 3, bottomType: 'sand', note: '', userAdded: true };
+      setDepthMarkers((prev) => [...prev, newD]);
+      setEditPopup({ type: 'depth', id, data: newD });
+      setCtxMenu(null);
+      return;
+    }
+    if (type === 'sand-bar') {
+      setDrawingPolygon({ points: [pos], label: 'New Sand Bar' });
+      setCtxMenu(null);
+      showT('Sand bar started! Right-click to add points.');
+      return;
+    }
+    if (type.startsWith('shell-')) {
+      const st = type.replace('shell-', '');
+      const newSP = { id, bay, position: pos, shellType: st, radius: 5, label: '', note: '', userAdded: true };
+      setShellPads((prev) => [...prev, newSP]);
+      setEditPopup({ type: 'shellpad', id, data: newSP });
+      setCtxMenu(null);
+      return;
+    }
     if (type.startsWith('launch-')) {
       const lt = type.replace('launch-', '');
       const newL = { id, name: 'New Launch', type: lt, position: pos, gps: gps.lat + ', ' + gps.lng, notes: '', bay, userAdded: true };
@@ -310,6 +352,16 @@ export default function App() {
     showT('Wade line saved with 40-yard cast range!');
   };
 
+  const handleFinishSandBar = () => {
+    if (!drawingPolygon || drawingPolygon.points.length < 3) { showT('Need at least 3 points'); return; }
+    const id = Date.now();
+    const sb = { id, bay: selBay?.id || 'matagorda', label: drawingPolygon.label || 'Sand Bar', points: drawingPolygon.points, depth: '1-3', note: '', userAdded: true };
+    setSandBars((prev) => [...prev, sb]);
+    setEditPopup({ type: 'sandbar', id, data: sb });
+    setDrawingPolygon(null);
+    showT('Sand bar saved!');
+  };
+
   const handleMarkerDragEnd = (markerType, id, e) => {
     dragJustEnded.current = true;
     setTimeout(() => { dragJustEnded.current = false; }, 300);
@@ -328,6 +380,23 @@ export default function App() {
       setShadeZones((prev) => prev.map((z) => z.id === id ? { ...z, cx: newPos.x, cy: newPos.y } : z));
     } else if (markerType === 'wade-pt') {
       setWadeLines((prev) => prev.map((wl) => wl.id === id.lineId ? { ...wl, points: wl.points.map((p, i) => i === id.ptIndex ? newPos : p) } : wl));
+    } else if (markerType === 'depth') {
+      setDepthMarkers((prev) => prev.map((d) => d.id === id ? { ...d, position: newPos } : d));
+    } else if (markerType === 'shellpad') {
+      setShellPads((prev) => prev.map((sp) => sp.id === id ? { ...sp, position: newPos } : sp));
+    } else if (markerType === 'sandbar-pt') {
+      setSandBars((prev) => prev.map((sb) => sb.id === id.barId ? { ...sb, points: sb.points.map((p, i) => i === id.ptIndex ? newPos : p) } : sb));
+    } else if (markerType === 'zone-resize') {
+      const z = shadeZones.find((z) => z.id === id.zoneId);
+      if (z) {
+        if (id.dir === 'n' || id.dir === 's') {
+          const newRy = Math.max(2, Math.abs(newPos.y - z.cy));
+          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, ry: newRy } : zone));
+        } else {
+          const newRx = Math.max(2, Math.abs(newPos.x - z.cx));
+          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, rx: newRx } : zone));
+        }
+      }
     }
     if (editPopup) {
       if (markerType === 'spot' && editPopup.type === 'spot' && editPopup.id === id) {
@@ -348,6 +417,15 @@ export default function App() {
   const updateLaunch = (id, field, value) => { setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, [field]: value } : l)); };
   const updateZone = (id, field, value) => { setShadeZones((prev) => prev.map((z) => z.id === id ? { ...z, [field]: value } : z)); };
   const updateWadeLine = (id, field, value) => { setWadeLines((prev) => prev.map((wl) => wl.id === id ? { ...wl, [field]: value } : wl)); };
+  const updateDepthMarker = (id, field, value) => { setDepthMarkers((prev) => prev.map((d) => d.id === id ? { ...d, [field]: value } : d)); };
+  const updateSandBar = (id, field, value) => { setSandBars((prev) => prev.map((sb) => sb.id === id ? { ...sb, [field]: value } : sb)); };
+  const updateShellPad = (id, field, value) => { setShellPads((prev) => prev.map((sp) => sp.id === id ? { ...sp, [field]: value } : sp)); };
+
+  const toggleLayer = (layer) => { setMapLayers((prev) => ({ ...prev, [layer]: !prev[layer] })); };
+
+  const shellTypeLabel = (t) => ({ scattered: 'Scattered Shell', heavy: 'Heavy Shell Pad', reef: 'Oyster Reef' }[t] || t);
+  const shellColor = (t) => ({ scattered: C.amber, heavy: '#ff8c00', reef: '#ef4444' }[t] || C.amber);
+  const shellDash = (t) => ({ scattered: '6 6', heavy: '3 3', reef: '' }[t] || '6 6');
 
   const handleDeleteMarker = (markerType, id) => {
     let data = null;
@@ -356,12 +434,18 @@ export default function App() {
     else if (markerType === 'zone') data = shadeZones.find((z) => z.id === id);
     else if (markerType === 'wadeline') data = wadeLines.find((w) => w.id === id);
     else if (markerType === 'photo') data = communityPhotos.find((p) => p.id === id);
+    else if (markerType === 'depth') data = depthMarkers.find((d) => d.id === id);
+    else if (markerType === 'sandbar') data = sandBars.find((sb) => sb.id === id);
+    else if (markerType === 'shellpad') data = shellPads.find((sp) => sp.id === id);
     if (data) setUndoStack((prev) => [...prev.slice(-9), { type: markerType, data }]);
     if (markerType === 'spot') { setAllSpots((prev) => prev.filter((s) => s.id !== id)); if (selSpot?.id === id) setSelSpot(null); }
     else if (markerType === 'launch') setLaunches((prev) => prev.filter((l) => l.id !== id));
     else if (markerType === 'zone') setShadeZones((prev) => prev.filter((z) => z.id !== id));
     else if (markerType === 'wadeline') setWadeLines((prev) => prev.filter((w) => w.id !== id));
     else if (markerType === 'photo') setCommunityPhotos((prev) => prev.filter((p) => p.id !== id));
+    else if (markerType === 'depth') setDepthMarkers((prev) => prev.filter((d) => d.id !== id));
+    else if (markerType === 'sandbar') setSandBars((prev) => prev.filter((sb) => sb.id !== id));
+    else if (markerType === 'shellpad') setShellPads((prev) => prev.filter((sp) => sp.id !== id));
     setEditPopup(null); setConfirmDelete(null); showT('Deleted \u2014 tap Undo to restore');
   };
 
@@ -373,8 +457,11 @@ export default function App() {
     if (type === 'zone') return shadeZones.find((z) => z.id === id);
     if (type === 'wadeline') return wadeLines.find((w) => w.id === id);
     if (type === 'photo') return communityPhotos.find((p) => p.id === id);
+    if (type === 'depth') return depthMarkers.find((d) => d.id === id);
+    if (type === 'sandbar') return sandBars.find((sb) => sb.id === id);
+    if (type === 'shellpad') return shellPads.find((sp) => sp.id === id);
     return null;
-  }, [editPopup, allSpots, launches, shadeZones, wadeLines, communityPhotos]);
+  }, [editPopup, allSpots, launches, shadeZones, wadeLines, communityPhotos, depthMarkers, sandBars, shellPads]);
 
   const editData = editPopup ? (getEditData() || editPopup.data) : null;
   const getEditGPS = () => {
@@ -522,10 +609,31 @@ export default function App() {
                   <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showRoute ? 'Route \u2192 ' + selSpot?.name : editMode ? 'Edit Mode' : 'Satellite Map'}</div>{!isMobile && <div style={{ fontSize: 11, color: editMode ? C.amber : C.dim }}>{editMode ? 'Right-click: add marker \u2022 Click: edit \u2022 Drag: move' : 'Sentinel-2 / USGS / ESRI'}</div>}</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={handleLocateMe} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: geo.position ? `${C.blue}20` : C.card2, border: `1px solid ${geo.position ? C.blue : C.bdr}`, color: geo.position ? C.blue : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="My Location"><LocI s={13} /></button>
+                    <button onClick={() => setShowLayerPanel(!showLayerPanel)} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: showLayerPanel ? `${C.cyan}20` : C.card2, border: `1px solid ${showLayerPanel ? C.cyan : C.bdr}`, color: showLayerPanel ? C.cyan : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Toggle Layers"><LayerI s={13} /></button>
                     <button onClick={() => { setEditMode(!editMode); setCtxMenu(null); setEditPopup(null); }} style={{ padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}><EditI s={13} /> {editMode ? 'Done' : 'Edit'}</button>
                     {showRoute && <button onClick={() => { setShowRoute(false); setRouteStep(0); setPlaying(false); if (isMobile) setMobilePanel(null); }} style={{ fontSize: 11, color: C.mid, background: C.card2, border: `1px solid ${C.bdr}`, borderRadius: 5, padding: isMobile ? '6px 10px' : '4px 10px', cursor: 'pointer', fontFamily: Fnt }}>{'\u2190'} Map</button>}
                   </div>
                 </div>
+
+                {showLayerPanel && <div style={{ position: 'absolute', top: isMobile ? 90 : 48, right: isMobile ? 8 : 52, zIndex: 1100, background: C.card, border: `1px solid ${C.bdr2}`, borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 32px #000a', minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Map Layers</div>
+                  {[
+                    { key: 'wadeLines', label: 'Wade Lines', icon: '\uD83C\uDFA3', color: C.amber },
+                    { key: 'castRange', label: 'Cast Range', icon: '\uD83C\uDFAF', color: C.amber },
+                    { key: 'wadeZones', label: 'Wade Zones', icon: '\uD83D\uDDFA', color: C.amber },
+                    { key: 'depthMarkers', label: 'Depth Markers', icon: '\uD83D\uDCCF', color: C.blue },
+                    { key: 'sandBars', label: 'Sand Bars', icon: '\uD83C\uDFD6', color: '#d4a574' },
+                    { key: 'shellPads', label: 'Shell Pads', icon: '\uD83D\uDC1A', color: C.amber },
+                    { key: 'spots', label: 'Fishing Spots', icon: '\uD83D\uDCCD', color: C.cyan },
+                    { key: 'launches', label: 'Launches', icon: '\u2693', color: C.teal },
+                    { key: 'photos', label: 'Photos', icon: '\uD83D\uDCF7', color: C.purple },
+                  ].map((layer) => (
+                    <button key={layer.key} onClick={() => toggleLayer(layer.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 4px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 6, fontFamily: Fnt }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${mapLayers[layer.key] ? layer.color : C.dim}`, background: mapLayers[layer.key] ? layer.color + '30' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, flexShrink: 0 }}>{mapLayers[layer.key] ? '\u2713' : ''}</div>
+                      <span style={{ fontSize: 12, color: mapLayers[layer.key] ? C.txt : C.dim, fontWeight: 500 }}>{layer.icon} {layer.label}</span>
+                    </button>
+                  ))}
+                </div>}
 
                 <div style={{ height: isMobile ? 'calc(100vh - 240px)' : 500, position: 'relative', minHeight: isMobile ? 300 : 400 }}>
                   <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={false} key={selBay.id} tap={true} touchZoom={true}>
@@ -554,31 +662,50 @@ export default function App() {
                     </>}
 
                     {/* Shade zones */}
-                    {!showRoute && bayShades.map((z) => (
+                    {mapLayers.wadeZones && !showRoute && bayShades.map((z) => (
                       <Polygon key={z.id} positions={shadeToPolygon(z)} pathOptions={{ color: z.color, weight: editMode ? 2.5 : 1.5, dashArray: editMode ? '' : '6 4', fillColor: z.color, fillOpacity: editMode ? 0.2 : 0.12 }} eventHandlers={{ click: () => { if (editMode) selectForEdit('zone', z.id); } }}>
                         <Tooltip>{z.label}{editMode ? ' (click to edit)' : ''}</Tooltip>
                       </Polygon>
                     ))}
 
-                    {editMode && !showRoute && bayShades.map((z) => (
-                      <Marker key={'zc' + z.id} position={bayConfig.toLatLng({ x: z.cx, y: z.cy })} icon={zoneCenterIcon(z.color)} draggable={true} eventHandlers={{ click: () => selectForEdit('zone', z.id), dragend: (e) => handleMarkerDragEnd('zone-center', z.id, e) }}>
-                        <Tooltip>Drag to move {z.label}</Tooltip>
-                      </Marker>
+                    {editMode && mapLayers.wadeZones && !showRoute && bayShades.map((z) => (
+                      <React.Fragment key={'zc' + z.id}>
+                        <Marker position={bayConfig.toLatLng({ x: z.cx, y: z.cy })} icon={zoneCenterIcon(z.color)} draggable={true} eventHandlers={{ click: () => selectForEdit('zone', z.id), dragend: (e) => handleMarkerDragEnd('zone-center', z.id, e) }}>
+                          <Tooltip>Drag to move {z.label}</Tooltip>
+                        </Marker>
+                        {[
+                          { dir: 'n', pos: { x: z.cx, y: z.cy - z.ry } },
+                          { dir: 's', pos: { x: z.cx, y: z.cy + z.ry } },
+                          { dir: 'e', pos: { x: z.cx + z.rx, y: z.cy } },
+                          { dir: 'w', pos: { x: z.cx - z.rx, y: z.cy } },
+                        ].map((h) => (
+                          <Marker key={`rh-${z.id}-${h.dir}`} position={bayConfig.toLatLng(h.pos)} icon={resizeHandleIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('zone-resize', { zoneId: z.id, dir: h.dir }, e) }}>
+                            <Tooltip>Drag to resize</Tooltip>
+                          </Marker>
+                        ))}
+                      </React.Fragment>
                     ))}
 
-                    {/* Wade lines */}
-                    {!showRoute && bayWadeLines.map((wl) => {
+                    {/* Wade lines with cast envelopes */}
+                    {mapLayers.wadeLines && !showRoute && bayWadeLines.map((wl) => {
                       const lineCoords = wl.points.map((p) => bayConfig.toLatLng(p));
-                      const cast = getCastLineOffsets(wl.points, CAST_METERS);
+                      const castMeters = (wl.castRange || 40) * 0.9144;
+                      const cast = getCastLineOffsets(wl.points, castMeters);
+                      const castEnvelope = cast.left.length > 1 ? [...cast.left, ...cast.right.slice().reverse()] : [];
+                      const midIdx = Math.floor(lineCoords.length / 2);
+                      const midPt = lineCoords[midIdx] || lineCoords[0];
                       return <React.Fragment key={'wl' + wl.id}>
                         <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 3, opacity: 0.9 }} eventHandlers={{ click: () => { if (editMode) selectForEdit('wadeline', wl.id); } }}>
-                          <Tooltip>{wl.label} ({wl.castRange || 40}yd cast range){editMode ? ' - click to edit' : ''}</Tooltip>
+                          <Tooltip><b>{wl.label}</b><br/>{wl.castRange || 40}yd cast | {wl.bottomType || 'unknown'} bottom{wl.direction ? ' | Wade ' + wl.direction : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                         </Polyline>
-                        {cast.left.length > 1 && <Polyline positions={cast.left} pathOptions={{ color: wl.color, weight: 1, opacity: 0.4, dashArray: '4 6' }} />}
-                        {cast.right.length > 1 && <Polyline positions={cast.right} pathOptions={{ color: wl.color, weight: 1, opacity: 0.4, dashArray: '4 6' }} />}
+                        {mapLayers.castRange && castEnvelope.length > 2 && <Polygon positions={castEnvelope} pathOptions={{ color: wl.color, weight: 0.5, opacity: 0.3, fillColor: wl.color, fillOpacity: 0.1, dashArray: '4 6' }} />}
+                        {mapLayers.castRange && cast.left.length > 1 && <Polyline positions={cast.left} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
+                        {mapLayers.castRange && cast.right.length > 1 && <Polyline positions={cast.right} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
+                        {mapLayers.castRange && midPt && <Marker position={midPt} icon={castDistLabel(wl.castRange || 40)} interactive={false} />}
+                        {wl.direction && midPt && <Marker position={midPt} icon={L.divIcon({ className: '', html: `<div style="background:${wl.color};color:#000;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:14px;white-space:nowrap;pointer-events:none">\u2192 ${wl.direction}</div>`, iconSize: [30, 14], iconAnchor: [15, -4] })} interactive={false} />}
                         {editMode && wl.points.map((pt, pi) => (
                           <Marker key={'wlp' + wl.id + '-' + pi} position={bayConfig.toLatLng(pt)} icon={wadePointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('wade-pt', { lineId: wl.id, ptIndex: pi }, e) }}>
-                            <Tooltip>Wade point {pi + 1} - drag to move</Tooltip>
+                            <Tooltip>Point {pi + 1}/{wl.points.length} - drag to move</Tooltip>
                           </Marker>
                         ))}
                       </React.Fragment>;
@@ -594,15 +721,57 @@ export default function App() {
                       ))}
                     </>}
 
+                    {/* Drawing polygon preview (sand bars) */}
+                    {drawingPolygon && drawingPolygon.points.length > 0 && <>
+                      {drawingPolygon.points.length >= 3 && <Polygon positions={drawingPolygon.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4', fillColor: '#d4a574', fillOpacity: 0.15 }} />}
+                      {drawingPolygon.points.length < 3 && <Polyline positions={drawingPolygon.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4' }} />}
+                      {drawingPolygon.points.map((pt, i) => (
+                        <Marker key={'drawp' + i} position={bayConfig.toLatLng(pt)} icon={sandBarPointIcon()}>
+                          <Tooltip>Point {i + 1}</Tooltip>
+                        </Marker>
+                      ))}
+                    </>}
+
+                    {/* Depth markers */}
+                    {mapLayers.depthMarkers && !showRoute && bayDepthMarkers.map((d) => (
+                      <Marker key={'dm' + d.id} position={bayConfig.toLatLng(d.position)} icon={depthMarkerIcon(d.depth, d.bottomType)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('depth', d.id); }, dragend: (e) => handleMarkerDragEnd('depth', d.id, e) }}>
+                        <Tooltip><b>{d.depth}ft</b> - {d.bottomType}{d.note ? ` | ${d.note}` : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
+                      </Marker>
+                    ))}
+
+                    {/* Sand bars */}
+                    {mapLayers.sandBars && !showRoute && baySandBars.map((sb) => (
+                      <React.Fragment key={'sb' + sb.id}>
+                        <Polygon positions={sb.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, fillColor: '#d4a574', fillOpacity: editMode ? 0.25 : 0.18, dashArray: editMode ? '' : '6 4' }} eventHandlers={{ click: () => { if (editMode) selectForEdit('sandbar', sb.id); } }}>
+                          <Tooltip><b>{sb.label}</b><br/>Depth: {sb.depth}ft{sb.note ? ` | ${sb.note}` : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
+                        </Polygon>
+                        {editMode && sb.points.map((pt, pi) => (
+                          <Marker key={'sbp' + sb.id + '-' + pi} position={bayConfig.toLatLng(pt)} icon={sandBarPointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('sandbar-pt', { barId: sb.id, ptIndex: pi }, e) }}>
+                            <Tooltip>Sand bar point {pi + 1} - drag to move</Tooltip>
+                          </Marker>
+                        ))}
+                      </React.Fragment>
+                    ))}
+
+                    {/* Shell pads */}
+                    {mapLayers.shellPads && !showRoute && bayShellPads.map((sp) => (
+                      <React.Fragment key={'sp' + sp.id}>
+                        <Circle center={bayConfig.toLatLng(sp.position)} radius={sp.radius * 80} pathOptions={{ color: shellColor(sp.shellType), weight: 1.5, fillColor: shellColor(sp.shellType), fillOpacity: editMode ? 0.2 : 0.12, dashArray: shellDash(sp.shellType) }} />
+                        <Marker position={bayConfig.toLatLng(sp.position)} icon={shellPadIcon(sp.shellType)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('shellpad', sp.id); }, dragend: (e) => handleMarkerDragEnd('shellpad', sp.id, e) }}>
+                          <Tooltip><b>{sp.label || shellTypeLabel(sp.shellType)}</b>{sp.note ? `\n${sp.note}` : ''}{editMode ? '\nClick to edit | Drag to move' : ''}</Tooltip>
+                        </Marker>
+                      </React.Fragment>
+                    ))}
+
                     {/* Launch markers */}
-                    {!showRoute && bayLaunches.map((l) => (
+                    {mapLayers.launches && !showRoute && bayLaunches.map((l) => (
                       <Marker key={`l${l.id}`} position={bayConfig.toLatLng(l.position)} icon={launchIcon(l.type)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('launch', l.id); }, dragend: (e) => handleMarkerDragEnd('launch', l.id, e) }}>
                         <Tooltip><b>{l.name}</b><br />{editMode ? 'Drag to move \u2022 Click to edit' : l.notes}</Tooltip>
                       </Marker>
                     ))}
 
                     {/* Photo markers */}
-                    {!showRoute && bayPhotos.map((p) => (
+                    {mapLayers.photos && !showRoute && bayPhotos.map((p) => (
                       <Marker key={`p${p.id}`} position={bayConfig.toLatLng(p.position)} icon={photoIcon()} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('photo', p.id); }, dragend: (e) => handleMarkerDragEnd('photo', p.id, e) }}>
                         {!editMode && <Popup><b>{p.caption}</b><br /><span style={{ fontSize: 11 }}>by {p.user} \u2022 {p.time}</span></Popup>}
                         {editMode && <Tooltip>Drag to move - Click to edit</Tooltip>}
@@ -627,7 +796,7 @@ export default function App() {
                     </>}
 
                     {/* Spot markers */}
-                    {!showRoute && filtered.map((s) => (
+                    {mapLayers.spots && !showRoute && filtered.map((s) => (
                       <Marker key={`s${s.id}`} position={bayConfig.toLatLng(s.position)} icon={spotIcon(s.type, selSpot?.id === s.id)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
                         <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
@@ -638,10 +807,21 @@ export default function App() {
                   {ctxMenu && editMode && <div style={isMobile ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100, background: C.card, borderTop: '2px solid ' + C.bdr2, borderRadius: '16px 16px 0 0', padding: '12px 12px 24px', boxShadow: '0 -8px 32px #000a' } : { position: 'absolute', left: Math.min(ctxMenu.x + 14, 250), top: ctxMenu.y + 52, zIndex: 1000, background: C.card, border: '1px solid ' + C.bdr2, borderRadius: 12, padding: 6, minWidth: 180, boxShadow: '0 8px 32px #000a' }} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                     {isMobile && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><div style={{ width: 40, height: 4, borderRadius: 2, background: C.bdr2 }} /></div>}
                     {isMobile && <div style={{ fontSize: 12, fontWeight: 700, color: C.mid, marginBottom: 8, textAlign: 'center' }}>Add to Map</div>}
-                    <div style={{ padding: '6px 10px', fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Add Marker Here</div>
-                    <div style={{ fontSize: 11, color: C.mid, padding: '2px 10px 8px', fontFamily: FM }}>{ctxMenu.lat.toFixed(5)}, {ctxMenu.lng.toFixed(5)}</div>
-                    <div style={isMobile ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 } : {}}>{[{ t: 'wade', l: 'Wade Spot', i: '\uD83D\uDEB6', c: C.amber }, { t: 'boat', l: 'Boat Spot', i: '\uD83D\uDEA4', c: C.blue }, { t: 'kayak', l: 'Kayak Spot', i: '\uD83D\uDEF6', c: C.green }, { t: 'wade-line', l: 'Wade Line + Cast', i: '\uD83C\uDFA3', c: C.amber }, { t: 'wade-zone', l: 'Wade Zone', i: '\uD83D\uDDFA', c: C.amber }, { t: 'launch-boat', l: 'Boat Ramp', i: '\u2693', c: C.cyan }, { t: 'launch-kayak', l: 'Kayak Launch', i: '\uD83D\uDEF6', c: C.teal }, { t: 'launch-drivein', l: 'Drive-in Access', i: '\uD83D\uDE97', c: C.purple }].map((opt) => <button key={opt.t} onClick={() => handleAddFromCtx(opt.t)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: isMobile ? '12px 10px' : '8px 10px', borderRadius: 8, background: isMobile ? C.card2 : 'transparent', border: isMobile ? `1px solid ${C.bdr}` : 'none', color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: isMobile ? 13 : 12, textAlign: 'left' }} onMouseEnter={(e) => { if (!isMobile) e.currentTarget.style.background = C.card2; }} onMouseLeave={(e) => { if (!isMobile) e.currentTarget.style.background = 'transparent'; }}><span style={{ width: isMobile ? 32 : 28, height: isMobile ? 32 : 28, borderRadius: 6, background: opt.c + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 18 : 15, flexShrink: 0 }}>{opt.i}</span><div style={{ fontWeight: 600 }}>{opt.l}</div></button>)}</div>
-                    <div style={{ borderTop: '1px solid ' + C.bdr, marginTop: 4, paddingTop: 4 }}><button onClick={() => setCtxMenu(null)} style={{ width: '100%', padding: '6px 10px', borderRadius: 6, background: 'transparent', border: 'none', color: C.dim, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, textAlign: 'center' }}>Cancel</button></div>
+                    <div style={{ fontSize: 11, color: C.mid, padding: '4px 10px 6px', fontFamily: FM }}>{ctxMenu.lat.toFixed(5)}, {ctxMenu.lng.toFixed(5)}</div>
+                    {[
+                      { section: 'Spots', items: [{ t: 'wade', l: 'Wade Spot', i: '\uD83D\uDEB6', c: C.amber }, { t: 'boat', l: 'Boat Spot', i: '\uD83D\uDEA4', c: C.blue }, { t: 'kayak', l: 'Kayak Spot', i: '\uD83D\uDEF6', c: C.green }] },
+                      { section: 'Wade Features', items: [{ t: 'wade-line', l: 'Wade Line + Cast', i: '\uD83C\uDFA3', c: C.amber }, { t: 'wade-zone', l: 'Wade Zone', i: '\uD83D\uDDFA', c: C.amber }] },
+                      { section: 'Bottom Features', items: [{ t: 'depth', l: 'Depth Marker', i: '\uD83D\uDCCF', c: C.blue }, { t: 'sand-bar', l: 'Sand Bar', i: '\uD83C\uDFD6\uFE0F', c: '#d4a574' }, { t: 'shell-scattered', l: 'Scattered Shell', i: '\uD83D\uDC1A', c: C.amber }, { t: 'shell-heavy', l: 'Heavy Shell Pad', i: '\uD83D\uDC1A', c: '#ff8c00' }, { t: 'shell-reef', l: 'Oyster Reef', i: '\uD83E\uDEB8', c: '#ef4444' }] },
+                      { section: 'Infrastructure', items: [{ t: 'launch-boat', l: 'Boat Ramp', i: '\u2693', c: C.cyan }, { t: 'launch-kayak', l: 'Kayak Launch', i: '\uD83D\uDEF6', c: C.teal }, { t: 'launch-drivein', l: 'Drive-in Access', i: '\uD83D\uDE97', c: C.purple }] },
+                    ].map((group) => (
+                      <div key={group.section}>
+                        <div style={{ padding: '6px 10px 2px', fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 4 }}>{group.section}</div>
+                        <div style={isMobile ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, padding: '0 2px' } : {}}>
+                          {group.items.map((opt) => <button key={opt.t} onClick={() => handleAddFromCtx(opt.t)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: isMobile ? '10px 8px' : '6px 10px', borderRadius: 8, background: isMobile ? C.card2 : 'transparent', border: isMobile ? `1px solid ${C.bdr}` : 'none', color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: isMobile ? 12 : 11, textAlign: 'left' }} onMouseEnter={(e) => { if (!isMobile) e.currentTarget.style.background = C.card2; }} onMouseLeave={(e) => { if (!isMobile) e.currentTarget.style.background = 'transparent'; }}><span style={{ width: isMobile ? 28 : 24, height: isMobile ? 28 : 24, borderRadius: 5, background: opt.c + '25', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isMobile ? 14 : 12, flexShrink: 0 }}>{opt.i}</span><div style={{ fontWeight: 600 }}>{opt.l}</div></button>)}
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ borderTop: '1px solid ' + C.bdr, marginTop: 6, paddingTop: 4 }}><button onClick={() => setCtxMenu(null)} style={{ width: '100%', padding: '6px 10px', borderRadius: 6, background: 'transparent', border: 'none', color: C.dim, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, textAlign: 'center' }}>Cancel</button></div>
                   </div>}
                 </div>
 
@@ -652,7 +832,7 @@ export default function App() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <EditI s={16} c={C.cyan} />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>Edit {editPopup.type === 'spot' ? 'Fishing Spot' : editPopup.type === 'launch' ? 'Launch Point' : editPopup.type === 'zone' ? 'Wade Zone' : editPopup.type === 'wadeline' ? 'Wade Line' : 'Photo'}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>Edit {{ spot: 'Fishing Spot', launch: 'Launch Point', zone: 'Wade Zone', wadeline: 'Wade Line', photo: 'Photo', depth: 'Depth Marker', sandbar: 'Sand Bar', shellpad: 'Shell Pad' }[editPopup.type] || editPopup.type}</div>
                         <div style={{ fontSize: 11, color: C.cyan, fontFamily: FM }}>{getEditGPS()}</div>
                       </div>
                     </div>
@@ -681,14 +861,73 @@ export default function App() {
                     {editPopup.type === 'zone' && <div style={{ display: 'grid', gap: 12 }}>
                       <div><Lbl>Zone Label</Lbl><input defaultValue={editPopup.data.label || ''} key={editPopup.id + 'zlabel'} onBlur={(e) => updateZone(editPopup.id, 'label', e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
                       <Sel label="Zone Type" isMobile={isMobile} value={editData?.type || 'wade'} onChange={(e) => { updateZone(editPopup.id, 'type', e.target.value); updateZone(editPopup.id, 'color', sc(e.target.value)); }} options={[{ value: 'wade', label: 'Wade Zone' }, { value: 'kayak', label: 'Kayak Zone' }, { value: 'boat', label: 'Boat Zone' }]} />
+                      <div><Lbl>Width (rx): {editData?.rx || editPopup.data.rx}</Lbl><input type="range" min={2} max={20} step={0.5} value={editData?.rx || editPopup.data.rx} onChange={(e) => updateZone(editPopup.id, 'rx', +e.target.value)} style={{ width: '100%', accentColor: C.cyan }} /></div>
+                      <div><Lbl>Height (ry): {editData?.ry || editPopup.data.ry}</Lbl><input type="range" min={2} max={20} step={0.5} value={editData?.ry || editPopup.data.ry} onChange={(e) => updateZone(editPopup.id, 'ry', +e.target.value)} style={{ width: '100%', accentColor: C.cyan }} /></div>
+                      <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 11, color: C.mid }}><EyeI s={11} c={C.dim} /> Drag the white handles on the zone edges to resize interactively</div></div>
                     </div>}
-                    {editPopup.type === 'wadeline' && <div style={{ display: 'grid', gap: 12 }}>
+                    {editPopup.type === 'wadeline' && (() => { const wl = editData || editPopup.data; return <div style={{ display: 'grid', gap: 12 }}>
                       <div><Lbl>Line Label</Lbl><input defaultValue={editPopup.data.label || ''} key={editPopup.id + 'wlabel'} onBlur={(e) => updateWadeLine(editPopup.id, 'label', e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
-                      <div><Lbl>Cast Range (yards)</Lbl><input type="number" defaultValue={editPopup.data.castRange || 40} key={editPopup.id + 'wcast'} onBlur={(e) => updateWadeLine(editPopup.id, 'castRange', +e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 13, fontFamily: Fnt, outline: 'none' }} /></div>
-                    </div>}
+                      <div><Lbl>Cast Range: {wl.castRange || 40} yards</Lbl>
+                        <input type="range" min={10} max={80} step={5} value={wl.castRange || 40} onChange={(e) => updateWadeLine(editPopup.id, 'castRange', +e.target.value)} style={{ width: '100%', accentColor: C.amber }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.dim }}><span>10yd</span><span>40yd</span><span>80yd</span></div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                        <Sel label="Wade Direction" isMobile={isMobile} value={wl.direction || ''} onChange={(e) => updateWadeLine(editPopup.id, 'direction', e.target.value)} options={[{ value: '', label: 'None' }, { value: 'N', label: 'North' }, { value: 'S', label: 'South' }, { value: 'E', label: 'East' }, { value: 'W', label: 'West' }, { value: 'NE', label: 'Northeast' }, { value: 'NW', label: 'Northwest' }, { value: 'SE', label: 'Southeast' }, { value: 'SW', label: 'Southwest' }]} />
+                        <Sel label="Bottom Type" isMobile={isMobile} value={wl.bottomType || ''} onChange={(e) => updateWadeLine(editPopup.id, 'bottomType', e.target.value)} options={[{ value: '', label: 'Unknown' }, { value: 'sand', label: 'Sand' }, { value: 'mud', label: 'Mud' }, { value: 'shell', label: 'Shell' }, { value: 'mixed', label: 'Mixed' }, { value: 'grass', label: 'Grass' }, { value: 'reef', label: 'Reef' }]} />
+                      </div>
+                      <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: C.mid }}>{wl.points?.length || 0} points</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => { const lastPt = wl.points?.[wl.points.length - 1]; if (lastPt) { const np = { x: lastPt.x + 2, y: lastPt.y - 2 }; updateWadeLine(editPopup.id, 'points', [...(wl.points || []), np]); showT('Point added'); } }} style={{ padding: '4px 8px', borderRadius: 4, background: C.cyan + '20', border: `1px solid ${C.cyan}40`, color: C.cyan, fontSize: 11, cursor: 'pointer', fontFamily: Fnt }}><PlusI s={10} c={C.cyan} /> Add</button>
+                          <button onClick={() => { if (wl.points?.length > 2) { updateWadeLine(editPopup.id, 'points', wl.points.slice(0, -1)); showT('Last point removed'); } else { showT('Min 2 points'); } }} style={{ padding: '4px 8px', borderRadius: 4, background: C.red + '20', border: `1px solid ${C.red}40`, color: C.red, fontSize: 11, cursor: 'pointer', fontFamily: Fnt }}><MinusI s={10} c={C.red} /> Remove</button>
+                        </div>
+                      </div>
+                      <div><Lbl>Line Color</Lbl><div style={{ display: 'flex', gap: 6 }}>
+                        {[{ c: C.amber, l: 'Amber' }, { c: C.cyan, l: 'Cyan' }, { c: C.green, l: 'Green' }, { c: C.red, l: 'Red' }, { c: C.blue, l: 'Blue' }].map((col) => (
+                          <button key={col.c} onClick={() => updateWadeLine(editPopup.id, 'color', col.c)} style={{ width: 28, height: 28, borderRadius: 6, background: col.c, border: wl.color === col.c ? '3px solid #fff' : '2px solid ' + C.bdr, cursor: 'pointer', boxShadow: wl.color === col.c ? '0 0 0 2px ' + col.c : 'none' }} title={col.l} />
+                        ))}
+                      </div></div>
+                      <div><Lbl>Notes</Lbl><textarea defaultValue={editPopup.data.notes || ''} key={editPopup.id + 'wnotes'} onBlur={(e) => updateWadeLine(editPopup.id, 'notes', e.target.value)} rows={2} placeholder="Wade strategy, tips..." style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, outline: 'none', resize: 'vertical' }} /></div>
+                    </div>; })()}
                     {editPopup.type === 'photo' && <div style={{ display: 'grid', gap: 12 }}>
                       <div><Lbl>Caption</Lbl><input defaultValue={editPopup.data.caption || ''} key={editPopup.id + 'pcap'} onBlur={(e) => setCommunityPhotos((prev) => prev.map((p) => p.id === editPopup.id ? { ...p, caption: e.target.value } : p))} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
                     </div>}
+                    {editPopup.type === 'depth' && (() => { const dm = editData || editPopup.data; return <div style={{ display: 'grid', gap: 12 }}>
+                      <div><Lbl>Depth (ft)</Lbl>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input type="number" step={0.5} min={0} max={30} defaultValue={editPopup.data.depth} key={editPopup.id + 'ddepth'} onBlur={(e) => updateDepthMarker(editPopup.id, 'depth', +e.target.value)} style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 16, fontFamily: FM, outline: 'none', fontWeight: 700 }} />
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: depthColor(dm.depth), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: '#fff' }}>{dm.depth}</div>
+                        </div>
+                      </div>
+                      <Sel label="Bottom Type" isMobile={isMobile} value={dm.bottomType || 'sand'} onChange={(e) => updateDepthMarker(editPopup.id, 'bottomType', e.target.value)} options={[{ value: 'sand', label: 'Sand' }, { value: 'mud', label: 'Mud' }, { value: 'shell', label: 'Shell' }, { value: 'grass', label: 'Grass' }, { value: 'reef', label: 'Reef' }]} />
+                      <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}` }}>
+                        <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Depth Color Guide</div>
+                        <div style={{ display: 'flex', gap: 4 }}>{[{ d: '0-1.5', c: '#22c55e' }, { d: '1.5-3', c: '#84cc16' }, { d: '3-4.5', c: C.amber }, { d: '4.5-6', c: '#f97316' }, { d: '6+', c: '#3b82f6' }].map((r) => <div key={r.d} style={{ flex: 1, textAlign: 'center', padding: '3px 0', borderRadius: 4, background: r.c + '30', fontSize: 9, color: r.c, fontWeight: 600 }}>{r.d}ft</div>)}</div>
+                      </div>
+                      <div><Lbl>Note</Lbl><input defaultValue={editPopup.data.note || ''} key={editPopup.id + 'dnote'} onBlur={(e) => updateDepthMarker(editPopup.id, 'note', e.target.value)} placeholder="e.g. Shell pad edge, gut between bars..." style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 13, fontFamily: Fnt, outline: 'none' }} /></div>
+                    </div>; })()}
+                    {editPopup.type === 'sandbar' && (() => { const sb = editData || editPopup.data; return <div style={{ display: 'grid', gap: 12 }}>
+                      <div><Lbl>Sand Bar Label</Lbl><input defaultValue={editPopup.data.label || ''} key={editPopup.id + 'sblabel'} onBlur={(e) => updateSandBar(editPopup.id, 'label', e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
+                      <div><Lbl>Depth Range (ft)</Lbl><input defaultValue={editPopup.data.depth || '1-3'} key={editPopup.id + 'sbdepth'} onBlur={(e) => updateSandBar(editPopup.id, 'depth', e.target.value)} placeholder="e.g. 1-3" style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 13, fontFamily: Fnt, outline: 'none' }} /></div>
+                      <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, color: C.mid }}>{sb.points?.length || 0} boundary points</span>
+                        <span style={{ fontSize: 10, color: C.dim }}>Drag points on map to reshape</span>
+                      </div>
+                      <div><Lbl>Note</Lbl><textarea defaultValue={editPopup.data.note || ''} key={editPopup.id + 'sbnote'} onBlur={(e) => updateSandBar(editPopup.id, 'note', e.target.value)} rows={2} placeholder="Shifts with current, exposed at low tide..." style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, outline: 'none', resize: 'vertical' }} /></div>
+                    </div>; })()}
+                    {editPopup.type === 'shellpad' && (() => { const sp = editData || editPopup.data; return <div style={{ display: 'grid', gap: 12 }}>
+                      <div><Lbl>Shell Pad Label</Lbl><input defaultValue={editPopup.data.label || ''} key={editPopup.id + 'splabel'} onBlur={(e) => updateShellPad(editPopup.id, 'label', e.target.value)} placeholder="e.g. Main shell pad" style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 14, fontFamily: Fnt, outline: 'none', fontWeight: 600 }} /></div>
+                      <Sel label="Shell Type" isMobile={isMobile} value={sp.shellType || 'scattered'} onChange={(e) => updateShellPad(editPopup.id, 'shellType', e.target.value)} options={[{ value: 'scattered', label: 'Scattered Shell' }, { value: 'heavy', label: 'Heavy Shell Pad' }, { value: 'reef', label: 'Oyster Reef' }]} />
+                      <div><Lbl>Radius: {sp.radius || 5}</Lbl>
+                        <input type="range" min={2} max={15} step={1} value={sp.radius || 5} onChange={(e) => updateShellPad(editPopup.id, 'radius', +e.target.value)} style={{ width: '100%', accentColor: shellColor(sp.shellType) }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.dim }}><span>Small</span><span>Medium</span><span>Large</span></div>
+                      </div>
+                      <div style={{ background: C.card2, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.bdr}` }}>
+                        <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Shell Types</div>
+                        <div style={{ display: 'flex', gap: 6 }}>{[{ t: 'scattered', l: 'Scattered', d: 'Light shell over sand/mud' }, { t: 'heavy', l: 'Heavy Pad', d: 'Dense shell concentration' }, { t: 'reef', l: 'Reef', d: 'Live oyster reef' }].map((r) => <div key={r.t} style={{ flex: 1, padding: '6px', borderRadius: 6, background: sp.shellType === r.t ? shellColor(r.t) + '25' : 'transparent', border: `1px solid ${sp.shellType === r.t ? shellColor(r.t) : C.bdr}`, textAlign: 'center', cursor: 'pointer', fontSize: 10 }} onClick={() => updateShellPad(editPopup.id, 'shellType', r.t)}><div style={{ fontWeight: 600, color: shellColor(r.t) }}>{r.l}</div><div style={{ color: C.dim, fontSize: 8, marginTop: 2 }}>{r.d}</div></div>)}</div>
+                      </div>
+                      <div><Lbl>Note</Lbl><textarea defaultValue={editPopup.data.note || ''} key={editPopup.id + 'spnote'} onBlur={(e) => updateShellPad(editPopup.id, 'note', e.target.value)} rows={2} placeholder="Reds stack here on incoming..." style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, outline: 'none', resize: 'vertical' }} /></div>
+                    </div>; })()}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                       <Btn primary small isMobile={isMobile} style={{ flex: 1 }} onClick={() => { showT('Saved!'); setEditPopup(null); setConfirmDelete(null); }}><ChkI s={14} c={C.bg} /> Done</Btn>
                       {confirmDelete === editPopup.id
@@ -701,10 +940,20 @@ export default function App() {
 
                 {/* Wade line drawing controls */}
                 {drawingLine && editMode && <div style={{ position: 'absolute', bottom: isMobile ? 16 : 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.card, border: '1px solid ' + C.green, borderRadius: 12, padding: isMobile ? '10px 14px' : '8px 16px', boxShadow: '0 4px 20px #000a', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, flexWrap: isMobile ? 'wrap' : 'nowrap', justifyContent: 'center', maxWidth: isMobile ? '90vw' : 'auto' }}>
-                  <div style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>Drawing: {drawingLine.points.length} points</div>
-                  <input value={drawingLine.label} onChange={(e) => setDrawingLine((prev) => ({ ...prev, label: e.target.value }))} style={{ padding: '4px 8px', borderRadius: 6, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, width: 140, outline: 'none' }} placeholder="Wade line name" />
-                  <Btn small primary isMobile={isMobile} onClick={handleFinishWadeLine}><ChkI s={12} c={C.bg} /> Finish</Btn>
+                  <div style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>{'\uD83C\uDFA3'} Wade Line: {drawingLine.points.length} pts</div>
+                  <input value={drawingLine.label} onChange={(e) => setDrawingLine((prev) => ({ ...prev, label: e.target.value }))} style={{ padding: '4px 8px', borderRadius: 6, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, width: 130, outline: 'none' }} placeholder="Wade line name" />
+                  {drawingLine.points.length > 1 && <Btn small isMobile={isMobile} onClick={() => setDrawingLine((prev) => ({ ...prev, points: prev.points.slice(0, -1) }))}><UndoI s={12} /> Undo</Btn>}
+                  <Btn small primary isMobile={isMobile} onClick={handleFinishWadeLine}><ChkI s={12} c={C.bg} /> Finish ({drawingLine.points.length})</Btn>
                   <Btn small danger isMobile={isMobile} onClick={() => { setDrawingLine(null); showT('Cancelled'); }}><XI s={12} /> Cancel</Btn>
+                </div>}
+
+                {/* Sand bar polygon drawing controls */}
+                {drawingPolygon && editMode && <div style={{ position: 'absolute', bottom: isMobile ? 16 : 10, left: '50%', transform: 'translateX(-50%)', zIndex: 1000, background: C.card, border: '1px solid #d4a574', borderRadius: 12, padding: isMobile ? '10px 14px' : '8px 16px', boxShadow: '0 4px 20px #000a', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, flexWrap: isMobile ? 'wrap' : 'nowrap', justifyContent: 'center', maxWidth: isMobile ? '90vw' : 'auto' }}>
+                  <div style={{ fontSize: 11, color: '#d4a574', fontWeight: 600 }}>{'\uD83C\uDFD6\uFE0F'} Sand Bar: {drawingPolygon.points.length} pts</div>
+                  <input value={drawingPolygon.label} onChange={(e) => setDrawingPolygon((prev) => ({ ...prev, label: e.target.value }))} style={{ padding: '4px 8px', borderRadius: 6, background: C.card2, border: '1px solid ' + C.bdr, color: C.txt, fontSize: 12, fontFamily: Fnt, width: 130, outline: 'none' }} placeholder="Sand bar name" />
+                  {drawingPolygon.points.length > 1 && <Btn small isMobile={isMobile} onClick={() => setDrawingPolygon((prev) => ({ ...prev, points: prev.points.slice(0, -1) }))}><UndoI s={12} /> Undo</Btn>}
+                  <Btn small primary isMobile={isMobile} onClick={handleFinishSandBar}><ChkI s={12} c={C.bg} /> Finish ({drawingPolygon.points.length})</Btn>
+                  <Btn small danger isMobile={isMobile} onClick={() => { setDrawingPolygon(null); showT('Cancelled'); }}><XI s={12} /> Cancel</Btn>
                 </div>}
 
                 {showRoute && curRoute.length > 0 && <div style={{ padding: isMobile ? '12px 10px' : '10px 14px', borderTop: '1px solid ' + C.bdr }}>

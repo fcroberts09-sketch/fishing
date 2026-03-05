@@ -146,3 +146,68 @@ export const wadePointIcon = () => L.divIcon({
   html: '<div style="width:16px;height:16px;border-radius:50%;background:' + C.amber + ';border:3px solid #fff;cursor:move;box-shadow:0 2px 6px #0008"></div>',
   iconSize: [16, 16], iconAnchor: [8, 8],
 });
+
+export function depthColor(depth) {
+  if (depth <= 1.5) return '#22c55e';
+  if (depth <= 3) return '#84cc16';
+  if (depth <= 4.5) return C.amber;
+  if (depth <= 6) return '#f97316';
+  return '#3b82f6';
+}
+
+const btIcons = { mud: '\u{1F7EB}', sand: '\u{1F7E8}', shell: '\u{1F41A}', grass: '\u{1F33F}', reef: '\u{1FAB8}' };
+
+export function depthMarkerIcon(depth, bottomType) {
+  const col = depthColor(depth);
+  const bt = btIcons[bottomType] || '';
+  return L.divIcon({
+    className: '',
+    html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto">
+      <div style="min-width:32px;height:22px;border-radius:6px;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace;box-shadow:0 2px 8px #0006;padding:0 4px;gap:2px;white-space:nowrap">${depth}<span style="font-size:8px;font-weight:400">ft</span></div>
+      ${bt ? `<div style="font-size:10px;margin-top:-2px">${bt}</div>` : ''}
+    </div>`,
+    iconSize: [36, 28],
+    iconAnchor: [18, 14],
+  });
+}
+
+const shellColors = { scattered: C.amber, heavy: '#ff8c00', reef: '#ef4444' };
+const shellEmojis = { scattered: '\u{1F41A}', heavy: '\u{1F41A}\u{1F41A}', reef: '\u{1FAB8}' };
+
+export function shellPadIcon(shellType) {
+  const col = shellColors[shellType] || C.amber;
+  const emoji = shellEmojis[shellType] || '\u{1F41A}';
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:${col}30;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">${emoji}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+export function resizeHandleIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid ${C.cyan};cursor:nwse-resize;box-shadow:0 1px 4px #0008"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+}
+
+export function sandBarPointIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:#d4a574;border:2px solid #fff;cursor:move;box-shadow:0 1px 4px #0008"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+export function castDistLabel(yards) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="background:#00000088;color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;pointer-events:none">${yards}yd</div>`,
+    iconSize: [40, 18],
+    iconAnchor: [20, 9],
+  });
+}
