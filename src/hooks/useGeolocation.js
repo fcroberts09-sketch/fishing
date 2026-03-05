@@ -5,6 +5,7 @@ export function useGeolocation() {
   const [error, setError] = useState(null);
   const [watching, setWatching] = useState(false);
   const watchId = useRef(null);
+  const retried = useRef(false);
 
   const handleSuccess = useCallback((pos) => {
     setPosition({
@@ -22,29 +23,40 @@ export function useGeolocation() {
     setError(err.message || 'Location unavailable');
   }, []);
 
-  // Start continuous watching
   const startWatching = useCallback(() => {
     if (!navigator.geolocation) {
       setError('Geolocation not supported');
       return;
     }
-    if (watchId.current != null) return; // already watching
+    if (watchId.current != null) return;
 
     setError(null);
     setWatching(true);
 
-    // Get immediate position first (faster initial fix)
-    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 60000,
-    });
+    // Try high accuracy first, fall back to low accuracy on failure (iOS fix)
+    navigator.geolocation.getCurrentPosition(
+      handleSuccess,
+      (err) => {
+        // On iOS, high accuracy can timeout — retry with low accuracy
+        if (!retried.current) {
+          retried.current = true;
+          navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+            enableHighAccuracy: false,
+            timeout: 30000,
+            maximumAge: 120000,
+          });
+        } else {
+          handleError(err);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
 
-    // Then start continuous watch
+    // Watch with lower accuracy requirement for reliability on mobile
     watchId.current = navigator.geolocation.watchPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 5000,
+      enableHighAccuracy: false,
+      timeout: 30000,
+      maximumAge: 10000,
     });
   }, [handleSuccess, handleError]);
 
@@ -56,12 +68,25 @@ export function useGeolocation() {
     setWatching(false);
   }, []);
 
-  // One-shot location request (also starts watching)
   const requestLocation = useCallback(() => {
-    startWatching();
-  }, [startWatching]);
+    // Reset retry flag so the user can re-trigger
+    retried.current = false;
+    // If already watching, do a fresh getCurrentPosition
+    if (watchId.current != null) {
+      navigator.geolocation.getCurrentPosition(
+        handleSuccess,
+        (err) => {
+          navigator.geolocation.getCurrentPosition(handleSuccess, handleError, {
+            enableHighAccuracy: false, timeout: 30000, maximumAge: 120000,
+          });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    } else {
+      startWatching();
+    }
+  }, [startWatching, handleSuccess, handleError]);
 
-  // Auto-start watching on mount (user will see browser permission prompt)
   useEffect(() => {
     if (!navigator.geolocation) return () => {};
     if (navigator.permissions) {
@@ -77,11 +102,11 @@ export function useGeolocation() {
           }
         };
       }).catch(() => {
-        // permissions API failed (common on iOS Safari) — try starting anyway
+        // permissions API not supported (iOS Safari) — try starting anyway
         startWatching();
       });
     } else {
-      // No permissions API (older browsers / iOS) — just start
+      // No permissions API — just start (iOS Safari, older browsers)
       startWatching();
     }
     return () => stopWatching();

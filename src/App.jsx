@@ -44,18 +44,20 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   // ─── PERSISTED STATE (localStorage) ───
-  const [allSpots, setAllSpots] = useLocalStorage('tt_spots2', DEFAULT_SPOTS);
-  const [launches, setLaunches] = useLocalStorage('tt_launches2', DEFAULT_LAUNCHES);
-  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones2', DEFAULT_SHADE_ZONES);
-  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines2', DEFAULT_WADE_LINES);
-  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos2', DEFAULT_PHOTOS);
+  const [allSpots, setAllSpots] = useLocalStorage('tt_spots3', DEFAULT_SPOTS);
+  const [launches, setLaunches] = useLocalStorage('tt_launches3', DEFAULT_LAUNCHES);
+  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones3', DEFAULT_SHADE_ZONES);
+  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines3', DEFAULT_WADE_LINES);
+  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos3', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
-  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth2', DEFAULT_DEPTH_MARKERS);
-  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars2', DEFAULT_SAND_BARS);
-  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads2', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers2', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, kayakLaunches: true, baitShops: true, marinas: true, areaLabels: true, windArrows: true });
+  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth3', DEFAULT_DEPTH_MARKERS);
+  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars3', DEFAULT_SAND_BARS);
+  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads3', DEFAULT_SHELL_PADS);
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers3', { wadeLines: false, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes', {});
+  const [editingRoute, setEditingRoute] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);
 
@@ -153,8 +155,22 @@ export default function App() {
   };
 
   // ─── NAVIGATION ROUTE ───
+  const routeKey = selSpot && selBay ? `${selBay.id}_${selSpot.id}` : null;
   const curRoute = useMemo(() => {
     if (!selSpot || !selBay) return [];
+    // Use saved route if available
+    if (routeKey && savedRoutes[routeKey]) {
+      const saved = savedRoutes[routeKey];
+      return saved.map((wp, i, arr) => {
+        let dist = 0, brng = 0, brngLbl = '';
+        if (i > 0) {
+          dist = haversineNM(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
+          brng = calcBearing(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
+          brngLbl = bearingLabel(brng);
+        }
+        return { ...wp, dist, brng, brngLbl, cumDist: 0 };
+      });
+    }
     const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
     const route = generateRoute(selBay.id, sLat, sLng, selSpot.name);
     return route.map((wp, i, arr) => {
@@ -166,9 +182,31 @@ export default function App() {
       }
       return { ...wp, dist, brng, brngLbl, cumDist: 0 };
     });
-  }, [selSpot, selBay, bayConfig]);
+  }, [selSpot, selBay, bayConfig, routeKey, savedRoutes]);
 
   useMemo(() => { let cum = 0; curRoute.forEach((wp) => { cum += wp.dist; wp.cumDist = cum; }); }, [curRoute]);
+
+  const saveCurrentRoute = useCallback(() => {
+    if (!routeKey || !curRoute.length) return;
+    const toSave = curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: toSave }));
+    setEditingRoute(false);
+  }, [routeKey, curRoute, setSavedRoutes]);
+
+  const updateRouteWaypoint = useCallback((idx, field, value) => {
+    if (!routeKey) return;
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+    const updated = base.map((wp, i) => i === idx ? { ...wp, [field]: value } : wp);
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+  }, [routeKey, savedRoutes, curRoute, setSavedRoutes]);
+
+  const handleRouteWaypointDrag = useCallback((idx, e) => {
+    const { lat, lng } = e.target.getLatLng();
+    if (!routeKey) return;
+    const base = savedRoutes[routeKey] || curRoute.map((wp) => ({ lat: wp.lat, lng: wp.lng, title: wp.title, desc: wp.desc, depth: wp.depth, warnings: wp.warnings || [] }));
+    const updated = base.map((wp, i) => i === idx ? { ...wp, lat, lng } : wp);
+    setSavedRoutes((prev) => ({ ...prev, [routeKey]: updated }));
+  }, [routeKey, savedRoutes, curRoute, setSavedRoutes]);
   const totalRouteNM = curRoute.length > 0 ? curRoute[curRoute.length - 1]?.cumDist || 0 : 0;
   const curWP = curRoute[routeStep];
 
@@ -497,13 +535,18 @@ export default function App() {
   const cpGPS = (g) => { navigator.clipboard?.writeText(`${g.lat}, ${g.lng}`); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const openBay = (id) => { setSelBay(BAY_DATA[id]); setPage('bay'); setSelSpot(null); setShowRoute(false); setSpotFilter('all'); setSearchQuery(''); };
   const openSpot = useCallback((s) => { setSelSpot(s); setShowRoute(false); setRouteStep(0); setMobilePanel('spot-detail'); }, []);
-  const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); };
+  const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); setEditingRoute(false); };
   const startNav = () => { setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav'); };
 
   const handleLocateMe = () => {
+    if (!navigator.geolocation) { showT('Geolocation not supported on this device'); return; }
     geo.requestLocation();
     setFlyToUser(true);
-    showT('Getting your location...');
+    showT(geo.error ? 'Retrying location...' : 'Getting your location...');
+    // Check for result after a delay
+    setTimeout(() => {
+      if (!geo.position && geo.error) showT('Location error: ' + geo.error);
+    }, 12000);
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -801,13 +844,13 @@ export default function App() {
                     {showRoute && routeCoords.length > 0 && <>
                       <Polyline positions={routeCoords} pathOptions={{ color: C.cyan, weight: 3, dashArray: '8 6', opacity: 0.3 }} />
                       {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 4, opacity: 0.9 }} />}
-                      <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} eventHandlers={{ click: () => setRouteStep(0) }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />Starting point</Tooltip></Marker>
+                      <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} draggable={editingRoute} eventHandlers={{ click: () => setRouteStep(0), dragend: editingRoute ? (e) => handleRouteWaypointDrag(0, e) : undefined }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />{editingRoute ? 'Drag to move' : 'Starting point'}</Tooltip></Marker>
                       {curRoute.slice(1).map((w, i) => {
                         const idx = i + 1;
                         const status = idx < routeStep ? 'done' : idx === routeStep ? 'active' : 'pending';
                         return (
-                          <Marker key={`wp${idx}`} position={[w.lat, w.lng]} icon={waypointIcon(idx, status, isMobile)} eventHandlers={{ click: () => setRouteStep(idx) }}>
-                            <Tooltip><b>{w.title}</b><br />{w.desc}<br />Depth: {w.depth}{w.dist > 0 ? ' \u2022 ' + w.dist.toFixed(1) + ' NM' : ''}</Tooltip>
+                          <Marker key={`wp${idx}`} position={[w.lat, w.lng]} icon={waypointIcon(idx, status, isMobile)} draggable={editingRoute} eventHandlers={{ click: () => setRouteStep(idx), dragend: editingRoute ? (e) => handleRouteWaypointDrag(idx, e) : undefined }}>
+                            <Tooltip><b>{w.title}</b><br />{editingRoute ? 'Drag to move' : w.desc}<br />Depth: {w.depth}{w.dist > 0 ? ' \u2022 ' + w.dist.toFixed(1) + ' NM' : ''}</Tooltip>
                           </Marker>
                         );
                       })}
@@ -1091,15 +1134,20 @@ export default function App() {
                   {showRoute && curWP && <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.cyan}40`, padding: 14 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                       <div style={{ width: 32, height: 32, borderRadius: '50%', background: C.cyan, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.bg, fontWeight: 700, fontSize: 14 }}>{routeStep + 1}</div>
-                      <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 13 }}>{curWP.title}</div><div style={{ fontSize: 11, color: C.cyan }}>Depth: {curWP.depth}</div></div>
+                      <div style={{ flex: 1 }}>
+                        {editingRoute ? <input value={curWP.title} onChange={(e) => updateRouteWaypoint(routeStep, 'title', e.target.value)} style={{ width: '100%', padding: '4px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 13, fontWeight: 700, fontFamily: Fnt, outline: 'none' }} /> : <div style={{ fontWeight: 700, fontSize: 13 }}>{curWP.title}</div>}
+                        {editingRoute ? <input value={curWP.depth || ''} onChange={(e) => updateRouteWaypoint(routeStep, 'depth', e.target.value)} placeholder="Depth" style={{ width: '100%', padding: '2px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, fontSize: 11, fontFamily: Fnt, outline: 'none', marginTop: 4 }} /> : <div style={{ fontSize: 11, color: C.cyan }}>Depth: {curWP.depth}</div>}
+                      </div>
+                      <button onClick={() => { if (editingRoute) saveCurrentRoute(); else setEditingRoute(true); }} style={{ padding: '6px 10px', borderRadius: 6, background: editingRoute ? C.green + '20' : C.card2, border: `1px solid ${editingRoute ? C.green : C.bdr}`, color: editingRoute ? C.green : C.mid, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}>{editingRoute ? <><SaveI s={12} c={C.green} /> Save</> : <><EditI s={12} /> Edit</>}</button>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 8 }}>
                       <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Bearing</div><div style={{ fontWeight: 700, fontSize: 12, color: C.cyan }}>{routeStep > 0 ? Math.round(curWP.brng) + '\u00B0 ' + curWP.brngLbl : '\u2014'}</div></div>
                       <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Leg Dist</div><div style={{ fontWeight: 700, fontSize: 12, color: C.teal }}>{routeStep > 0 ? curWP.dist.toFixed(1) + ' NM' : '\u2014'}</div></div>
                       <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Total</div><div style={{ fontWeight: 700, fontSize: 12, color: C.green }}>{curWP.cumDist.toFixed(1)} NM</div></div>
                     </div>
-                    <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, marginBottom: 8 }}>{curWP.desc}</p>
+                    {editingRoute ? <textarea value={curWP.desc} onChange={(e) => updateRouteWaypoint(routeStep, 'desc', e.target.value)} rows={2} style={{ width: '100%', padding: '6px 8px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.mid, fontSize: 12, fontFamily: Fnt, outline: 'none', resize: 'vertical', lineHeight: 1.5, marginBottom: 8 }} /> : <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, marginBottom: 8 }}>{curWP.desc}</p>}
                     {curWP.warnings?.length > 0 && <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 6, padding: 8 }}>{curWP.warnings.map((w, i) => <div key={i} style={{ fontSize: 11, color: C.amber }}>{'\u26A0'} {w}</div>)}</div>}
+                    {editingRoute && <div style={{ fontSize: 10, color: C.dim, marginTop: 6 }}>Drag waypoints on map to reposition. Changes auto-save on Save.</div>}
                   </div>}
                 </> : <>
                   <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.bdr}`, padding: 14 }}>

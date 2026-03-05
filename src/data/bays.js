@@ -41,10 +41,10 @@ export function zoneToLatLng(zone, bayConfig) {
 
 export const BAY_HARBORS = {
   matagorda: {
-    id: 'mat-harbor', name: 'Matagorda Harbor',
-    lat: 28.6847, lng: -95.9654,
-    desc: 'Main harbor \u2014 fuel, bait, ice available',
-    depth: '4-6 ft', type: 'boat',
+    id: 'mat-harbor', name: 'Park Boat',
+    lat: 28.63887, lng: -95.903967,
+    desc: 'Boat parking / launch point',
+    depth: '3-5 ft', type: 'boat',
   },
   galveston: {
     id: 'gal-harbor', name: 'Galveston Yacht Basin',
@@ -100,62 +100,21 @@ export const BAY_DATA = {
 // Matagorda anchors: Harbor 28.6847/-95.9654, Chinquapin 28.724/-95.851, Nature Park 28.693/-95.957
 // Galveston anchors: Yacht Basin 29.2889/-94.7912, TX City Dike 29.3834/-94.9012
 
-export const DEFAULT_SHADE_ZONES = [
-  { id: 1, type: 'wade', label: 'Shell Island Wade Zone', lat: 28.718, lng: -95.852, radiusLat: 0.008, radiusLng: 0.015, color: C.amber, bay: 'matagorda' },
-  { id: 2, type: 'wade', label: 'River Mouth Sand Bar', lat: 28.688, lng: -95.968, radiusLat: 0.005, radiusLng: 0.010, color: C.amber, bay: 'matagorda' },
-  { id: 3, type: 'kayak', label: 'Oyster Lake Paddle Zone', lat: 28.696, lng: -95.933, radiusLat: 0.006, radiusLng: 0.012, color: C.green, bay: 'matagorda' },
-  { id: 4, type: 'wade', label: 'Dollar Reef Flat', lat: 29.295, lng: -94.810, radiusLat: 0.007, radiusLng: 0.012, color: C.amber, bay: 'galveston' },
-  { id: 5, type: 'boat', label: 'Ship Channel Drift', lat: 29.355, lng: -94.830, radiusLat: 0.008, radiusLng: 0.018, color: C.blue, bay: 'galveston' },
-];
+export const DEFAULT_SHADE_ZONES = [];
 
 export const DEFAULT_LAUNCHES = [
-  { id: 1, name: 'Matagorda Harbor', type: 'boat', lat: 28.6847, lng: -95.9654, notes: '50+ spots, fuel, bait, ice', bay: 'matagorda', isHarbor: true },
-  { id: 2, name: 'Oyster Lake Park', type: 'kayak', lat: 28.6930, lng: -95.9570, notes: 'Free, kayak-only', bay: 'matagorda' },
-  { id: 3, name: 'River Road Access', type: 'drivein', lat: 28.6890, lng: -95.9740, notes: '4WD recommended', bay: 'matagorda' },
-  { id: 4, name: 'Galveston Yacht Basin', type: 'boat', lat: 29.2889, lng: -94.7912, notes: 'Full service marina', bay: 'galveston', isHarbor: true },
-  { id: 5, name: 'Texas City Dike', type: 'boat', lat: 29.3834, lng: -94.9012, notes: 'Public ramp, $12', bay: 'galveston' },
-  { id: 6, name: 'Eagle Point Marina', type: 'boat', lat: 29.4825, lng: -94.9190, notes: 'Protected launch, $15', bay: 'galveston' },
   { id: 7, name: 'Park Boat', type: 'boat', lat: 28.63887, lng: -95.903967, notes: 'Boat parking / launch point', bay: 'matagorda' },
 ];
 
-export const DEFAULT_WADE_LINES = [
-  { id: 1, bay: 'matagorda', label: 'Shell Island Wade', points: [{ lat: 28.708, lng: -95.863 }, { lat: 28.714, lng: -95.856 }, { lat: 28.720, lng: -95.849 }], color: C.amber, castRange: 40, direction: 'N', bottomType: 'shell', notes: 'Wade north along shell pad edge. Best on incoming.' },
-  { id: 2, bay: 'matagorda', label: 'River Mouth Wade', points: [{ lat: 28.684, lng: -95.973 }, { lat: 28.687, lng: -95.969 }, { lat: 28.690, lng: -95.965 }], color: C.amber, castRange: 40, direction: 'N', bottomType: 'sand', notes: 'Follow the sand bar north. Watch current on outgoing.' },
-  { id: 3, bay: 'galveston', label: 'Dike Rocks Wade', points: [{ lat: 29.380, lng: -94.906 }, { lat: 29.384, lng: -94.901 }, { lat: 29.387, lng: -94.897 }], color: C.amber, castRange: 40, direction: 'NE', bottomType: 'reef', notes: 'Rock line wade. Watch footing near jetty.' },
-];
+export const DEFAULT_WADE_LINES = [];
 
-export const DEFAULT_DEPTH_MARKERS = [
-  { id: 1, bay: 'matagorda', lat: 28.714, lng: -95.856, depth: 2, bottomType: 'shell', note: 'Shell pad edge' },
-  { id: 2, bay: 'matagorda', lat: 28.719, lng: -95.850, depth: 1.5, bottomType: 'sand', note: 'Sand bar top' },
-  { id: 3, bay: 'matagorda', lat: 28.706, lng: -95.866, depth: 4, bottomType: 'mud', note: 'Gut between bars' },
-  { id: 4, bay: 'matagorda', lat: 28.686, lng: -95.970, depth: 3, bottomType: 'sand', note: 'River mouth channel edge' },
-  { id: 5, bay: 'matagorda', lat: 28.689, lng: -95.966, depth: 1, bottomType: 'sand', note: 'Exposed at low tide' },
-  { id: 6, bay: 'matagorda', lat: 28.697, lng: -95.933, depth: 5, bottomType: 'mud', note: 'Deep hole' },
-  { id: 7, bay: 'galveston', lat: 29.293, lng: -94.813, depth: 3.5, bottomType: 'reef', note: 'Dike rocks dropoff' },
-  { id: 8, bay: 'galveston', lat: 29.310, lng: -94.808, depth: 6, bottomType: 'mud', note: 'Channel depth' },
-  { id: 9, bay: 'galveston', lat: 29.383, lng: -94.901, depth: 2, bottomType: 'sand', note: 'Dike flat' },
-];
+export const DEFAULT_DEPTH_MARKERS = [];
 
-export const DEFAULT_SAND_BARS = [
-  { id: 1, bay: 'matagorda', label: 'Shell Island Bar', points: [{ lat: 28.706, lng: -95.866 }, { lat: 28.712, lng: -95.858 }, { lat: 28.720, lng: -95.848 }, { lat: 28.722, lng: -95.852 }, { lat: 28.716, lng: -95.862 }, { lat: 28.709, lng: -95.869 }], depth: '1-2', note: 'Exposed at low tide. Prime wade area.' },
-  { id: 2, bay: 'matagorda', label: 'River Mouth Sand Bar', points: [{ lat: 28.683, lng: -95.974 }, { lat: 28.686, lng: -95.970 }, { lat: 28.690, lng: -95.965 }, { lat: 28.692, lng: -95.968 }, { lat: 28.688, lng: -95.974 }, { lat: 28.684, lng: -95.977 }], depth: '0.5-2', note: 'Shifts with current. Check before wading.' },
-  { id: 3, bay: 'galveston', label: 'Dollar Reef Flat', points: [{ lat: 29.292, lng: -94.816 }, { lat: 29.296, lng: -94.810 }, { lat: 29.300, lng: -94.806 }, { lat: 29.298, lng: -94.803 }, { lat: 29.294, lng: -94.808 }], depth: '2-3', note: 'Oyster reef edges. Wade boots required.' },
-];
+export const DEFAULT_SAND_BARS = [];
 
-export const DEFAULT_SHELL_PADS = [
-  { id: 1, bay: 'matagorda', lat: 28.718, lng: -95.852, shellType: 'heavy', radius: 5, label: 'Shell Island Main Pad', note: 'Dense shell. Reds stack here on incoming.' },
-  { id: 2, bay: 'matagorda', lat: 28.708, lng: -95.864, shellType: 'scattered', radius: 8, label: 'South Scatter Shell', note: 'Scattered shell over sand. Good for trout.' },
-  { id: 3, bay: 'matagorda', lat: 28.687, lng: -95.970, shellType: 'scattered', radius: 4, label: 'River Mouth Shell', note: 'Light scatter near sand bar edge.' },
-  { id: 4, bay: 'galveston', lat: 29.295, lng: -94.810, shellType: 'reef', radius: 6, label: 'Dollar Reef Oysters', note: 'Live oyster reef. Watch your feet.' },
-  { id: 5, bay: 'galveston', lat: 29.383, lng: -94.903, shellType: 'scattered', radius: 3, label: 'Dike Scatter', note: 'Light shell near jetty rocks.' },
-];
+export const DEFAULT_SHELL_PADS = [];
 
-export const DEFAULT_PHOTOS = [
-  { id: 1, user: 'CaptMike', lat: 28.714, lng: -95.857, caption: 'Shell pad at low tide', time: '2 days ago', likes: 24, bay: 'matagorda' },
-  { id: 2, user: 'WadeFisher22', lat: 28.687, lng: -95.970, caption: 'River mouth sandbar', time: '1 week ago', likes: 18, bay: 'matagorda' },
-  { id: 3, user: 'KayakJen', lat: 28.696, lng: -95.933, caption: 'Tailing reds in back lake', time: '3 days ago', likes: 31, bay: 'matagorda' },
-  { id: 4, user: 'BayRat42', lat: 29.383, lng: -94.901, caption: 'Sheepshead on fiddler crabs', time: '1 day ago', likes: 14, bay: 'galveston' },
-];
+export const DEFAULT_PHOTOS = [];
 
 
 // Route generation using GPS coordinates
