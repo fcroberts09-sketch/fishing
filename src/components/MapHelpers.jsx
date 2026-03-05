@@ -211,3 +211,19 @@ export function castDistLabel(yards) {
     iconAnchor: [20, 9],
   });
 }
+
+export function currentArrowIcon(dir, speed, tideState) {
+  const color = tideState === 'incoming' ? '#06b6d4' : tideState === 'outgoing' ? '#f59e0b' : '#94a3b8';
+  const opacity = Math.min(0.7, 0.2 + speed * 0.3);
+  const size = Math.min(24, 12 + speed * 6);
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:${opacity};transform:rotate(${dir}deg);transition:transform 2s ease">
+      <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="none">
+        <path d="M12 2l-5 14h3v6h4v-6h3z"/>
+      </svg>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}

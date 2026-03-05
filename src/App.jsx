@@ -8,12 +8,13 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute } from './data/bays';
-import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor } from './components/MapHelpers';
+import { FitBounds, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, currentArrowIcon } from './components/MapHelpers';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useIsMobile } from './hooks/useIsMobile';
+import { useConditions } from './hooks/useConditions';
 
 // ─── CAST RANGE CONSTANT ───
 const CAST_METERS = 40 * 0.9144;
@@ -53,7 +54,7 @@ export default function App() {
   const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth', DEFAULT_DEPTH_MARKERS);
   const [sandBars, setSandBars] = useLocalStorage('tt_sandbars', DEFAULT_SAND_BARS);
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true });
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, currents: true });
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);
 
@@ -108,8 +109,12 @@ export default function App() {
   const dragJustEnded = useRef(false);
   const editPanelRef = useRef(null);
 
-  const weather = { temp: 78, wind: 12, windDir: 'SE', gusts: 18, conditions: 'Partly Cloudy', waterTemp: 71 };
-  const tide = { status: 'Rising', next: 'High at 2:34 PM' };
+  // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
+  const cond = useConditions(selBay?.id);
+  const weather = cond.weather || { temp: '--', windSpeed: 0, windDir: 0, windDirLabel: '--', windGusts: 0, conditions: 'Loading...', conditionIcon: '\u26C5' };
+  const tide = cond.tides ? { status: cond.tides.tideState === 'incoming' ? 'Incoming' : cond.tides.tideState === 'outgoing' ? 'Outgoing' : 'Slack', next: cond.tides.nextTide ? `${cond.tides.nextTide.type === 'high' ? 'High' : 'Low'} at ${cond.tides.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--', height: cond.tides.currentHeight, strength: cond.tides.tideStrength } : { status: 'Loading...', next: '--' };
+  const [showConditions, setShowConditions] = useState(false);
+  const [showReports, setShowReports] = useState(false);
 
   const bayConfig = selBay ? BAY_CONFIGS[selBay.id] : BAY_CONFIGS.matagorda;
   const baySpots = allSpots.filter((s) => s.bay === selBay?.id);
@@ -529,14 +534,16 @@ export default function App() {
         </div>
       </header>
 
-      {/* WEATHER BAR */}
+      {/* WEATHER BAR - LIVE DATA */}
       <div style={{ background: `${C.card}99`, borderBottom: `1px solid ${C.bdr}`, padding: isMobile ? '6px 10px' : '7px 20px', overflow: 'hidden' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, fontSize: isMobile ? 11 : 12, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}\u00B0F</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.wind} mph {weather.windDir}{!isMobile && ` (gusts ${weather.gusts})`}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WaveI s={13} c={C.teal} /> {tide.status}</span>
-          <span style={{ flexShrink: 0 }}>{'\uD83D\uDCA7'} {weather.waterTemp}\u00B0F</span>
-          {!isMobile && <span style={{ marginLeft: 'auto', color: C.cyan }}><SunI s={13} /> {weather.conditions}</span>}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.windSpeed} mph {weather.windDirLabel}{!isMobile && ` (gusts ${weather.windGusts})`}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.height != null ? ` ${tide.height}ft` : ''}</span>
+          <span style={{ flexShrink: 0 }}>{cond.moon.icon} {!isMobile ? cond.moon.name : ''}</span>
+          {!isMobile && <span style={{ color: C.mid }}>{weather.conditionIcon} {weather.conditions}</span>}
+          <button onClick={() => setShowConditions(true)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{cond.loading ? '\u23F3' : '\uD83C\uDF0A'} {isMobile ? '' : 'Conditions'}</button>
+          <button onClick={() => setShowReports(true)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.green, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{'\uD83D\uDCCB'} {isMobile ? '' : 'Reports'}</button>
         </div>
       </div>
 
@@ -627,6 +634,7 @@ export default function App() {
                     { key: 'spots', label: 'Fishing Spots', icon: '\uD83D\uDCCD', color: C.cyan },
                     { key: 'launches', label: 'Launches', icon: '\u2693', color: C.teal },
                     { key: 'photos', label: 'Photos', icon: '\uD83D\uDCF7', color: C.purple },
+                    { key: 'currents', label: 'Current Arrows', icon: '\u{1F30A}', color: C.cyan },
                   ].map((layer) => (
                     <button key={layer.key} onClick={() => toggleLayer(layer.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 4px', background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 6, fontFamily: Fnt }}>
                       <div style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${mapLayers[layer.key] ? layer.color : C.dim}`, background: mapLayers[layer.key] ? layer.color + '30' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, flexShrink: 0 }}>{mapLayers[layer.key] ? '\u2713' : ''}</div>
@@ -800,6 +808,11 @@ export default function App() {
                       <Marker key={`s${s.id}`} position={bayConfig.toLatLng(s.position)} icon={spotIcon(s.type, selSpot?.id === s.id)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
                         <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
+                    ))}
+
+                    {/* Current/wind arrows on water */}
+                    {mapLayers.currents && !showRoute && !editMode && cond.currents && cond.currents.arrows.map((a, i) => (
+                      <Marker key={'ca' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={currentArrowIcon(a.dir, a.speed, cond.currents.tideState)} interactive={false} />
                     ))}
                   </MapContainer>
 
@@ -1004,6 +1017,12 @@ export default function App() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
                         {[['Tide', selSpot.bestTide], ['Time', selSpot.bestTime], ['Season', selSpot.bestSeason], ['Wind', selSpot.bestWind]].map(([l, v]) => <div key={l} style={{ background: C.card2, borderRadius: 6, padding: '6px 8px' }}><div style={{ fontSize: 9, color: C.dim }}>{l}</div><div style={{ fontWeight: 600, fontSize: 11 }}>{v}</div></div>)}
                       </div>
+                      {/* Live conditions mini-bar */}
+                      <div style={{ background: `${tide.status === 'Incoming' ? C.cyan : C.amber}08`, borderRadius: 8, padding: '8px 10px', border: `1px solid ${tide.status === 'Incoming' ? C.cyan : C.amber}20`, marginBottom: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, fontSize: 10 }}>
+                        <div><div style={{ color: C.dim, fontSize: 8 }}>NOW</div><div style={{ fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : C.amber }}>{tide.status} {tide.height != null ? `${tide.height}ft` : ''}</div></div>
+                        <div><div style={{ color: C.dim, fontSize: 8 }}>WIND</div><div style={{ fontWeight: 600 }}>{weather.windSpeed} {weather.windDirLabel}</div></div>
+                        <div><div style={{ color: C.dim, fontSize: 8 }}>MOON</div><div style={{ fontWeight: 600 }}>{cond.moon.icon} {cond.moonRating.rating >= 4 ? '\u2B50' : ''}</div></div>
+                      </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 10 }}>{selSpot.lures.map((l) => <Badge key={l} color={C.cyan}>{l}</Badge>)}</div>
                       <p style={{ color: C.mid, lineHeight: 1.5, marginBottom: 12 }}>{selSpot.desc}</p>
                       {selSpot.media?.length > 0 && <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>{selSpot.media.map((m, i) => <div key={i} style={{ flex: 1, background: C.card2, borderRadius: 8, padding: 8, border: `1px solid ${C.bdr}`, cursor: 'pointer' }}><div style={{ fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>{m.type === 'video' ? '\uD83C\uDFA5' : '\uD83D\uDCF7'} {m.label}</div></div>)}</div>}
@@ -1093,6 +1112,98 @@ export default function App() {
       </main>
 
       {/* MODALS */}
+      {/* CONDITIONS MODAL */}
+      {showConditions && <Modal title={`${weather.conditionIcon} Bay Conditions`} sub={`${selBay?.name || 'Matagorda Bay'} \u2022 Live data${cond.lastFetch ? ' \u2022 Updated ' + cond.lastFetch.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}`} onClose={() => setShowConditions(false)} wide isMobile={isMobile}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+          {/* TIDE SECTION */}
+          <div style={{ background: C.card2, borderRadius: 12, padding: 16, border: `1px solid ${C.bdr}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><WaveI s={18} c={tide.status === 'Incoming' ? C.cyan : C.amber} /><span style={{ fontWeight: 700, fontSize: 15 }}>Tides</span><span style={{ fontSize: 11, color: C.dim, marginLeft: 'auto' }}>NOAA {cond.tides?.stationId || ''}</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Status</div><div style={{ fontSize: 16, fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}>{tide.status}</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Height</div><div style={{ fontSize: 16, fontWeight: 700 }}>{tide.height != null ? `${tide.height} ft` : '--'}</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Next</div><div style={{ fontSize: 13, fontWeight: 600 }}>{tide.next}</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Strength</div>
+                <div style={{ height: 6, background: C.bdr, borderRadius: 3, marginTop: 8 }}><div style={{ height: '100%', borderRadius: 3, background: tide.status === 'Incoming' ? C.cyan : C.amber, width: `${(tide.strength || 0) * 100}%`, transition: 'width 1s' }} /></div>
+              </div>
+            </div>
+            {cond.tides?.predictions && <div>
+              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Today's Tides</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {cond.tides.predictions.filter((p) => p.time.toDateString() === new Date().toDateString()).map((p, i) => (
+                  <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 11 }}>
+                    <span style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191' : '\u2193'} {p.height.toFixed(1)}ft</span>
+                    <span style={{ color: C.mid, marginLeft: 6 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
+                  </div>
+                ))}
+              </div>
+            </div>}
+          </div>
+
+          {/* WEATHER SECTION */}
+          <div style={{ background: C.card2, borderRadius: 12, padding: 16, border: `1px solid ${C.bdr}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><SunI s={18} c={C.amber} /><span style={{ fontWeight: 700, fontSize: 15 }}>Weather</span><span style={{ fontSize: 11, color: C.dim, marginLeft: 'auto' }}>Open-Meteo</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Temp</div><div style={{ fontSize: 22, fontWeight: 700 }}>{weather.temp}<span style={{ fontSize: 12 }}>{'\u00B0F'}</span></div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Feels Like</div><div style={{ fontSize: 22, fontWeight: 700 }}>{weather.feelsLike || '--'}<span style={{ fontSize: 12 }}>{'\u00B0F'}</span></div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Wind</div><div style={{ fontSize: 16, fontWeight: 700 }}>{weather.windSpeed} <span style={{ fontSize: 11, fontWeight: 400 }}>mph {weather.windDirLabel}</span></div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Gusts</div><div style={{ fontSize: 16, fontWeight: 700 }}>{weather.windGusts} <span style={{ fontSize: 11, fontWeight: 400 }}>mph</span></div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}`, gridColumn: '1 / -1' }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Conditions</div><div style={{ fontSize: 15, fontWeight: 600 }}>{weather.conditionIcon} {weather.conditions}{weather.humidity ? ` \u2022 ${weather.humidity}% humidity` : ''}</div></div>
+            </div>
+            {cond.currents && <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
+              <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Bay Current</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{cond.currents.combined.speed} kts @ {cond.currents.combined.dir}{'\u00B0'}</div>
+              <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>Wind-driven: {cond.currents.windCurrent.speed.toFixed(2)} kts + Tide: {cond.currents.tideCurrent.speed.toFixed(1)} kts</div>
+            </div>}
+          </div>
+
+          {/* MOON SECTION */}
+          <div style={{ background: C.card2, borderRadius: 12, padding: 16, border: `1px solid ${C.bdr}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><span style={{ fontSize: 20 }}>{cond.moon.icon}</span><span style={{ fontWeight: 700, fontSize: 15 }}>Moon Phase</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}`, textAlign: 'center' }}><div style={{ fontSize: 28 }}>{cond.moon.icon}</div><div style={{ fontSize: 11, fontWeight: 600, marginTop: 4 }}>{cond.moon.name}</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Illumination</div><div style={{ fontSize: 18, fontWeight: 700 }}>{cond.moon.illumination}%</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Fishing</div><div style={{ fontSize: 14, fontWeight: 700, color: cond.moonRating.rating >= 4 ? C.green : cond.moonRating.rating >= 3 ? C.amber : C.dim }}>{'\u2B50'.repeat(cond.moonRating.rating)}</div><div style={{ fontSize: 10, color: C.mid }}>{cond.moonRating.label}</div></div>
+            </div>
+          </div>
+
+          {/* MARINE / WAVES SECTION */}
+          <div style={{ background: C.card2, borderRadius: 12, padding: 16, border: `1px solid ${C.bdr}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}><span style={{ fontSize: 18 }}>{'\uD83C\uDF0A'}</span><span style={{ fontWeight: 700, fontSize: 15 }}>Marine</span></div>
+            {cond.marine ? <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Wave Height</div><div style={{ fontSize: 16, fontWeight: 700 }}>{cond.marine.waveHeight != null ? `${cond.marine.waveHeight} ft` : '--'}</div></div>
+              <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}><div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Wave Period</div><div style={{ fontSize: 16, fontWeight: 700 }}>{cond.marine.wavePeriod != null ? `${cond.marine.wavePeriod}s` : '--'}</div></div>
+            </div> : <div style={{ fontSize: 12, color: C.mid, padding: 8 }}>Marine data not available for inland bays. Wave data is from nearest Gulf station.</div>}
+          </div>
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <Btn primary isMobile={isMobile} style={{ flex: 1 }} onClick={() => { cond.refresh(); showT('Refreshing...'); }}><span>{'\uD83D\uDD04'}</span> Refresh Data</Btn>
+          <Btn isMobile={isMobile} onClick={() => setShowConditions(false)}><XI s={14} /> Close</Btn>
+        </div>
+      </Modal>}
+
+      {/* FISHING REPORTS MODAL */}
+      {showReports && <Modal title={`\uD83D\uDCCB Fishing Reports`} sub={`${selBay?.name || 'Matagorda Bay'} \u2022 Latest reports`} onClose={() => setShowReports(false)} wide isMobile={isMobile}>
+        {cond.reports.length === 0 ? <div style={{ padding: 20, textAlign: 'center', color: C.mid }}>No reports available</div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {cond.reports.map((r, i) => (
+            <div key={i} style={{ background: C.card2, borderRadius: 10, padding: 14, border: `1px solid ${C.bdr}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{r.user}</div>
+                <div style={{ fontSize: 10, color: C.dim }}>{r.time}</div>
+                <div style={{ marginLeft: 'auto', padding: '2px 8px', borderRadius: 4, background: `${C.cyan}15`, fontSize: 9, color: C.cyan, fontWeight: 600 }}>{r.source}</div>
+              </div>
+              <p style={{ fontSize: 13, color: C.txt, lineHeight: 1.5, margin: 0, marginBottom: 8 }}>{r.text}</p>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {r.species.map((sp) => <Badge key={sp} color={C.green}>{sp}</Badge>)}
+                <Badge color={C.cyan}>{r.area}</Badge>
+              </div>
+            </div>
+          ))}
+        </div>}
+        <div style={{ marginTop: 16, background: `${C.amber}10`, borderRadius: 10, padding: 12, border: `1px solid ${C.amber}25` }}>
+          <p style={{ fontSize: 11, color: C.mid, margin: 0, lineHeight: 1.5 }}>{'\u{1F4A1}'} Reports sourced from 2CoolFishing, TX Parks & Wildlife, and local fishing communities. Data refreshes daily. For a backend-connected version with real-time scraping, a proxy server is needed.</p>
+        </div>
+      </Modal>}
+
       {showSettings && <Modal title="Settings" sub="API keys & preferences" onClose={() => setShowSettings(false)} isMobile={isMobile}>
         <div style={{ marginBottom: 20 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}><KeyI s={16} c={C.cyan} /><span style={{ fontWeight: 700 }}>Claude API Key</span></div>
         <Inp label="API Key" isMobile={isMobile} type="password" placeholder="sk-ant-..." value={settings.claudeApiKey} onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })} />
