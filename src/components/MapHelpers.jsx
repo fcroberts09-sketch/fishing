@@ -16,7 +16,7 @@ export function FitBounds({ bounds }) {
   const map = useMap();
   useEffect(() => {
     if (bounds && bounds.length >= 2) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
   }, [bounds, map]);
   return null;
@@ -74,77 +74,84 @@ export function FlyToLocation({ position }) {
   return null;
 }
 
-// Icon factories
-export function spotIcon(type, selected) {
+// Icon factories - all sizes reduced for mobile clarity
+export function spotIcon(type, selected, mobile) {
   const col = sc(type);
   const icon = si(type);
-  const size = selected ? 38 : 30;
+  const size = mobile ? (selected ? 28 : 22) : (selected ? 36 : 28);
+  const br = mobile ? (selected ? 8 : 6) : (selected ? 10 : 8);
+  const fs = mobile ? (selected ? 14 : 11) : (selected ? 18 : 14);
   return L.divIcon({
     className: '',
-    html: `<div style="width:${size}px;height:${size}px;border-radius:${selected ? 12 : 8}px;background:${col};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${selected ? 20 : 16}px;box-shadow:0 2px 10px #0006;cursor:pointer;transition:all 0.2s">${icon}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:${br}px;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${fs}px;box-shadow:0 1px 6px #0006;cursor:pointer;transition:all 0.2s">${icon}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
 }
 
-export function launchIcon(type) {
+export function launchIcon(type, mobile) {
   const icon = li(type);
+  const size = mobile ? 22 : 28;
+  const fs = mobile ? 11 : 14;
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:8px;background:${C.bg};border:2px solid ${sc(type)};display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 6px #0004">${icon}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:6px;background:${C.bg};border:2px solid ${sc(type)};display:flex;align-items:center;justify-content:center;font-size:${fs}px;box-shadow:0 1px 4px #0004">${icon}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-export function photoIcon() {
+export function photoIcon(mobile) {
+  const size = mobile ? 20 : 26;
   return L.divIcon({
     className: '',
-    html: `<div style="width:26px;height:26px;border-radius:50%;background:${C.purple};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 8px #0006">\u{1F4F7}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${C.purple};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 9 : 12}px;box-shadow:0 1px 6px #0006">\u{1F4F7}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-export function waypointIcon(index, status) {
+export function waypointIcon(index, status, mobile) {
   const col = status === 'done' ? C.green : status === 'active' ? C.cyan : '#475569';
   const label = status === 'done' ? '\u2713' : index + 1;
+  const size = mobile ? 24 : 30;
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${col};border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;color:${status === 'active' ? C.bg : '#fff'};font-weight:700;font-size:14px;font-family:'Instrument Sans',sans-serif;box-shadow:0 3px 10px #0006">${label}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:${status === 'active' ? C.bg : '#fff'};font-weight:700;font-size:${mobile ? 11 : 14}px;font-family:'Instrument Sans',sans-serif;box-shadow:0 2px 8px #0006">${label}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-export function harborIcon() {
+export function harborIcon(mobile) {
+  const size = mobile ? 26 : 34;
   return L.divIcon({
     className: '',
-    html: `<div style="width:34px;height:34px;border-radius:50%;background:${C.green};border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 12px #0006">\u2693</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${C.green};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 12 : 16}px;box-shadow:0 2px 8px #0006">\u2693</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
 export function userLocationIcon() {
   return L.divIcon({
     className: '',
-    html: `<div style="width:20px;height:20px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 6px #3b82f620, 0 2px 10px #0006;animation:pulse 2s infinite"></div>`,
-    iconSize: [20, 20],
-    iconAnchor: [10, 10],
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 0 0 6px #3b82f620, 0 2px 10px #0006;animation:pulse 2s infinite"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
   });
 }
 
 export const zoneCenterIcon = (color) => L.divIcon({
   className: '',
-  html: '<div style="width:22px;height:22px;border-radius:50%;background:' + color + ';border:3px solid #fff;cursor:move;box-shadow:0 2px 8px #0008;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:700">+</div>',
-  iconSize: [22, 22], iconAnchor: [11, 11],
+  html: '<div style="width:18px;height:18px;border-radius:50%;background:' + color + ';border:2px solid #fff;cursor:move;box-shadow:0 2px 6px #0008;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:700">+</div>',
+  iconSize: [18, 18], iconAnchor: [9, 9],
 });
 
 export const wadePointIcon = () => L.divIcon({
   className: '',
-  html: '<div style="width:16px;height:16px;border-radius:50%;background:' + C.amber + ';border:3px solid #fff;cursor:move;box-shadow:0 2px 6px #0008"></div>',
-  iconSize: [16, 16], iconAnchor: [8, 8],
+  html: '<div style="width:12px;height:12px;border-radius:50%;background:' + C.amber + ';border:2px solid #fff;cursor:move;box-shadow:0 1px 4px #0008"></div>',
+  iconSize: [12, 12], iconAnchor: [6, 6],
 });
 
 export function depthColor(depth) {
@@ -157,68 +164,71 @@ export function depthColor(depth) {
 
 const btIcons = { mud: '\u{1F7EB}', sand: '\u{1F7E8}', shell: '\u{1F41A}', grass: '\u{1F33F}', reef: '\u{1FAB8}' };
 
-export function depthMarkerIcon(depth, bottomType) {
+export function depthMarkerIcon(depth, bottomType, mobile) {
   const col = depthColor(depth);
   const bt = btIcons[bottomType] || '';
+  const h = mobile ? 18 : 22;
+  const fs = mobile ? 9 : 11;
   return L.divIcon({
     className: '',
     html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:auto">
-      <div style="min-width:32px;height:22px;border-radius:6px;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace;box-shadow:0 2px 8px #0006;padding:0 4px;gap:2px;white-space:nowrap">${depth}<span style="font-size:8px;font-weight:400">ft</span></div>
-      ${bt ? `<div style="font-size:10px;margin-top:-2px">${bt}</div>` : ''}
+      <div style="min-width:${mobile ? 26 : 32}px;height:${h}px;border-radius:5px;background:${col};border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${fs}px;font-weight:700;color:#fff;font-family:'JetBrains Mono',monospace;box-shadow:0 1px 4px #0006;padding:0 3px;gap:1px;white-space:nowrap">${depth}<span style="font-size:${mobile ? 7 : 8}px;font-weight:400">ft</span></div>
+      ${bt ? `<div style="font-size:${mobile ? 8 : 10}px;margin-top:-2px">${bt}</div>` : ''}
     </div>`,
-    iconSize: [36, 28],
-    iconAnchor: [18, 14],
+    iconSize: [mobile ? 28 : 36, mobile ? 22 : 28],
+    iconAnchor: [mobile ? 14 : 18, mobile ? 11 : 14],
   });
 }
 
 const shellColors = { scattered: C.amber, heavy: '#ff8c00', reef: '#ef4444' };
 const shellEmojis = { scattered: '\u{1F41A}', heavy: '\u{1F41A}\u{1F41A}', reef: '\u{1FAB8}' };
 
-export function shellPadIcon(shellType) {
+export function shellPadIcon(shellType, mobile) {
   const col = shellColors[shellType] || C.amber;
   const emoji = shellEmojis[shellType] || '\u{1F41A}';
+  const size = mobile ? 22 : 30;
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${col}30;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">${emoji}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${col}30;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:${mobile ? 10 : 14}px;box-shadow:0 1px 4px #0006;cursor:pointer">${emoji}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
 export function resizeHandleIcon() {
   return L.divIcon({
     className: '',
-    html: `<div style="width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid ${C.cyan};cursor:nwse-resize;box-shadow:0 1px 4px #0008"></div>`,
-    iconSize: [12, 12],
-    iconAnchor: [6, 6],
+    html: `<div style="width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid ${C.cyan};cursor:nwse-resize;box-shadow:0 1px 4px #0008"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
   });
 }
 
 export function sandBarPointIcon() {
   return L.divIcon({
     className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:#d4a574;border:2px solid #fff;cursor:move;box-shadow:0 1px 4px #0008"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:#d4a574;border:2px solid #fff;cursor:move;box-shadow:0 1px 4px #0008"></div>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
   });
 }
 
 export function castDistLabel(yards) {
   return L.divIcon({
     className: '',
-    html: `<div style="background:#00000088;color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;pointer-events:none">${yards}yd</div>`,
-    iconSize: [40, 18],
-    iconAnchor: [20, 9],
+    html: `<div style="background:#00000088;color:#fff;font-size:9px;font-weight:600;padding:1px 4px;border-radius:3px;font-family:'JetBrains Mono',monospace;white-space:nowrap;pointer-events:none">${yards}yd</div>`,
+    iconSize: [32, 14],
+    iconAnchor: [16, 7],
   });
 }
 
 export function currentArrowIcon(dir, speed, tideState) {
   const color = tideState === 'incoming' ? '#06b6d4' : tideState === 'outgoing' ? '#f59e0b' : '#94a3b8';
-  const opacity = Math.min(0.7, 0.2 + speed * 0.3);
-  const size = Math.min(24, 12 + speed * 6);
+  const opacity = Math.min(0.5, 0.15 + speed * 0.2);
+  const size = Math.min(18, 10 + speed * 4);
   return L.divIcon({
     className: '',
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:${opacity};transform:rotate(${dir}deg);transition:transform 2s ease">
+    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:${opacity};transform:rotate(${dir}deg)">
       <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="none">
         <path d="M12 2l-5 14h3v6h4v-6h3z"/>
       </svg>
@@ -228,10 +238,9 @@ export function currentArrowIcon(dir, speed, tideState) {
   });
 }
 
-// Wind direction arrows - smaller, showing wind flow across the bay
 export function windArrowIcon(dir, speed) {
-  const opacity = Math.min(0.6, 0.15 + (speed / 30) * 0.45);
-  const size = Math.min(18, 10 + (speed / 30) * 8);
+  const opacity = Math.min(0.45, 0.1 + (speed / 30) * 0.35);
+  const size = Math.min(14, 8 + (speed / 30) * 6);
   const color = speed > 20 ? '#ef4444' : speed > 15 ? '#f59e0b' : speed > 10 ? '#06b6d4' : '#94a3b8';
   return L.divIcon({
     className: '',
@@ -246,48 +255,47 @@ export function windArrowIcon(dir, speed) {
   });
 }
 
-// Bait shop icon
-export function baitShopIcon() {
+export function baitShopIcon(mobile) {
+  const size = mobile ? 20 : 26;
   return L.divIcon({
     className: '',
-    html: `<div style="width:28px;height:28px;border-radius:6px;background:#16a34a;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">\u{1F3E3}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:5px;background:#16a34a;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 10 : 13}px;box-shadow:0 1px 4px #0006;cursor:pointer">\u{1F3E3}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-// Marina icon
-export function marinaIcon() {
+export function marinaIcon(mobile) {
+  const size = mobile ? 22 : 28;
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:#0284c7;border:2.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 2px 10px #0006;cursor:pointer">\u2693</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#0284c7;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 11 : 14}px;box-shadow:0 1px 6px #0006;cursor:pointer">\u2693</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-// Kayak launch specific icon
-export function kayakLaunchIcon() {
+export function kayakLaunchIcon(mobile) {
+  const size = mobile ? 20 : 26;
   return L.divIcon({
     className: '',
-    html: `<div style="width:28px;height:28px;border-radius:8px;background:#0d9488;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px #0006;cursor:pointer">\u{1F6F6}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    html: `<div style="width:${size}px;height:${size}px;border-radius:6px;background:#0d9488;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${mobile ? 10 : 13}px;box-shadow:0 1px 4px #0006;cursor:pointer">\u{1F6F6}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
-// Area label icon (text on map like Google Maps)
 export function areaLabelIcon(name, size, type) {
-  const fontSize = size === 'large' ? 14 : size === 'medium' ? 12 : 10;
+  const fontSize = size === 'large' ? 13 : size === 'medium' ? 11 : 9;
   const fontWeight = size === 'large' ? 700 : size === 'medium' ? 600 : 500;
   const color = type === 'water' ? '#7dd3fc' : type === 'channel' ? '#93c5fd' : type === 'reef' ? '#fbbf24' : '#d1d5db';
   const style = type === 'water' || type === 'channel' ? 'italic' : 'normal';
-  const letterSpacing = size === 'large' ? '0.12em' : size === 'medium' ? '0.08em' : '0.04em';
-  const textShadow = '0 0 6px #000, 0 0 12px #000, 0 1px 3px #000';
-  const width = Math.max(80, name.length * (fontSize * 0.65));
+  const letterSpacing = size === 'large' ? '0.1em' : size === 'medium' ? '0.06em' : '0.03em';
+  const textShadow = '0 0 4px #000, 0 0 8px #000, 0 1px 2px #000';
+  const width = Math.max(60, name.length * (fontSize * 0.62));
   return L.divIcon({
     className: '',
-    html: `<div style="width:${width}px;text-align:center;pointer-events:none;font-family:'Instrument Sans',sans-serif;font-size:${fontSize}px;font-weight:${fontWeight};color:${color};font-style:${style};letter-spacing:${letterSpacing};text-shadow:${textShadow};white-space:nowrap;opacity:0.7">${name}</div>`,
+    html: `<div style="width:${width}px;text-align:center;pointer-events:none;font-family:'Instrument Sans',sans-serif;font-size:${fontSize}px;font-weight:${fontWeight};color:${color};font-style:${style};letter-spacing:${letterSpacing};text-shadow:${textShadow};white-space:nowrap;opacity:0.65">${name}</div>`,
     iconSize: [width, fontSize + 4],
     iconAnchor: [width / 2, (fontSize + 4) / 2],
   });

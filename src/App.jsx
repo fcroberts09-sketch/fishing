@@ -537,7 +537,7 @@ export default function App() {
       </header>
 
       {/* WEATHER BAR - LIVE DATA */}
-      <div style={{ background: `${C.card}99`, borderBottom: `1px solid ${C.bdr}`, padding: isMobile ? '6px 10px' : '7px 20px', overflow: 'hidden' }}>
+      <div style={{ background: `${C.card}99`, borderBottom: `1px solid ${C.bdr}`, padding: isMobile ? '4px 8px' : '7px 20px', overflow: 'hidden' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, fontSize: isMobile ? 11 : 12, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}\u00B0F</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.windSpeed} mph {weather.windDirLabel}{!isMobile && ` (gusts ${weather.windGusts})`}</span>
@@ -549,7 +549,7 @@ export default function App() {
         </div>
       </div>
 
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? 10 : 20 }}>
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '4px 4px 0' : 20 }}>
         {/* HOME */}
         {page === 'home' && !showBS && (
           <div>
@@ -588,34 +588,34 @@ export default function App() {
         {/* BAY DETAIL */}
         {page === 'bay' && selBay && !showBS && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <button onClick={() => { setPage('home'); setSelBay(null); setSelSpot(null); setMobilePanel(null); }} style={{ padding: isMobile ? '8px 12px' : '5px 10px', borderRadius: 6, background: C.card, border: `1px solid ${C.bdr}`, color: C.mid, cursor: 'pointer', fontFamily: Fnt, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><ArrowLI s={13} /> Back</button>
-              <div style={{ flex: 1, minWidth: 0 }}><h2 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selBay.name}</h2>{!isMobile && <p style={{ fontSize: 12, color: C.mid }}>{selBay.sub} \u2014 Satellite imagery</p>}</div>
-              <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 12, marginBottom: isMobile ? 4 : 14 }}>
+              <button onClick={() => { setPage('home'); setSelBay(null); setSelSpot(null); setMobilePanel(null); }} style={{ padding: isMobile ? '4px 8px' : '5px 10px', borderRadius: 6, background: C.card, border: `1px solid ${C.bdr}`, color: C.mid, cursor: 'pointer', fontFamily: Fnt, fontSize: isMobile ? 11 : 12, display: 'flex', alignItems: 'center', gap: 3 }}><ArrowLI s={12} /> {isMobile ? '' : 'Back'}</button>
+              <div style={{ flex: 1, minWidth: 0 }}><h2 style={{ fontSize: isMobile ? 14 : 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selBay.name}</h2>{!isMobile && <p style={{ fontSize: 12, color: C.mid }}>{selBay.sub} \u2014 HD Satellite</p>}</div>
+              {!isMobile && <div style={{ display: 'flex', gap: 4 }}>
                 <Btn small isMobile={isMobile} onClick={handleLocateMe}><LocI s={13} c={C.cyan} /></Btn>
                 <Btn small primary isMobile={isMobile} onClick={() => setShowAI(true)}><SparkI s={13} c={C.bg} /> AI</Btn>
-              </div>
+              </div>}
             </div>
 
-            {/* SEARCH BAR */}
-            <div style={{ marginBottom: isMobile ? 8 : 12 }}>
+            {/* SEARCH BAR - desktop only, mobile has bottom sheet */}
+            {!isMobile && <div style={{ marginBottom: 12 }}>
               <div style={{ position: 'relative' }}>
-                <SearchI s={14} c={C.dim} style={{ position: 'absolute', left: 12, top: isMobile ? 14 : 11 }} />
-                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search spots, species, lures..." style={{ width: '100%', padding: isMobile ? '12px 14px 12px 36px' : '10px 14px 10px 36px', borderRadius: 10, background: C.card, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: isMobile ? 15 : 13, fontFamily: Fnt, outline: 'none', minHeight: isMobile ? 44 : 0 }} />
-                {searchQuery && <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 10, top: isMobile ? 12 : 9, background: 'none', border: 'none', color: C.dim, cursor: 'pointer' }}><XI s={16} /></button>}
+                <SearchI s={14} c={C.dim} style={{ position: 'absolute', left: 12, top: 11 }} />
+                <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search spots, species, lures..." style={{ width: '100%', padding: '10px 14px 10px 36px', borderRadius: 10, background: C.card, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 13, fontFamily: Fnt, outline: 'none' }} />
+                {searchQuery && <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: 10, top: 9, background: 'none', border: 'none', color: C.dim, cursor: 'pointer' }}><XI s={16} /></button>}
               </div>
-            </div>
+            </div>}
 
-            {/* FILTER CHIPS */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: isMobile ? 8 : 14, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', paddingBottom: 2 }}>
+            {/* FILTER CHIPS - desktop only */}
+            <div style={{ display: isMobile ? 'none' : 'flex', gap: 4, marginBottom: 14, overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none', paddingBottom: 2 }}>
               {[{ id: 'all', l: 'All', i: '\uD83D\uDCCD' }, { id: 'favorites', l: 'Saved', i: '\u2764\uFE0F' }, { id: 'wade', l: 'Wade', i: '\uD83D\uDEB6' }, { id: 'boat', l: 'Boat', i: '\uD83D\uDEA4' }, { id: 'kayak', l: 'Kayak', i: '\uD83D\uDEF6' }].map((f) => <button key={f.id} onClick={() => setSpotFilter(f.id)} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: isMobile ? '8px 14px' : '5px 12px', borderRadius: 6, fontSize: isMobile ? 12 : 11, fontWeight: 600, background: spotFilter === f.id ? (f.id === 'favorites' ? C.red : C.cyan) : C.card, color: spotFilter === f.id ? C.bg : C.mid, border: `1px solid ${spotFilter === f.id ? (f.id === 'favorites' ? C.red : C.cyan) : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, flexShrink: 0 }}>{f.i} {f.l}{f.id === 'favorites' ? ` (${favorites.filter((fid) => baySpots.some((s) => s.id === fid)).length})` : ''}</button>)}
             </div>
 
-            <div style={{ display: isMobile ? 'flex' : 'grid', flexDirection: 'column', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: isMobile ? 0 : 14 }}>
+            <div style={{ display: isMobile ? 'flex' : 'grid', flexDirection: 'column', gridTemplateColumns: isMobile ? '1fr' : '1fr 360px', gap: isMobile ? 0 : 14 }}>
               {/* SATELLITE MAP */}
               <div style={{ background: C.card, borderRadius: isMobile ? 0 : 14, border: editMode ? '2px solid ' + C.amber : isMobile ? 'none' : '1px solid ' + C.bdr, overflow: 'hidden', position: 'relative' }}>
-                <div style={{ padding: isMobile ? '8px 10px' : '10px 14px', borderBottom: `1px solid ${C.bdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showRoute ? 'Route \u2192 ' + selSpot?.name : editMode ? 'Edit Mode' : 'Satellite Map'}</div>{!isMobile && <div style={{ fontSize: 11, color: editMode ? C.amber : C.dim }}>{editMode ? 'Right-click: add marker \u2022 Click: edit \u2022 Drag: move' : 'Sentinel-2 / USGS / ESRI'}</div>}</div>
+                <div style={{ padding: isMobile ? '4px 8px' : '10px 14px', borderBottom: `1px solid ${C.bdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>{!isMobile && <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showRoute ? 'Route \u2192 ' + selSpot?.name : editMode ? 'Edit Mode' : 'Satellite Map'}</div>}{!isMobile && <div style={{ fontSize: 11, color: editMode ? C.amber : C.dim }}>{editMode ? 'Right-click: add marker \u2022 Click: edit \u2022 Drag: move' : 'HD Satellite / Google / USGS'}</div>}</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={handleLocateMe} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: geo.position ? `${C.blue}20` : C.card2, border: `1px solid ${geo.position ? C.blue : C.bdr}`, color: geo.position ? C.blue : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="My Location"><LocI s={13} /></button>
                     <button onClick={() => setShowLayerPanel(!showLayerPanel)} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: showLayerPanel ? `${C.cyan}20` : C.card2, border: `1px solid ${showLayerPanel ? C.cyan : C.bdr}`, color: showLayerPanel ? C.cyan : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Toggle Layers"><LayerI s={13} /></button>
@@ -650,17 +650,20 @@ export default function App() {
                   ))}
                 </div>}
 
-                <div style={{ height: isMobile ? 'calc(100vh - 240px)' : 500, position: 'relative', minHeight: isMobile ? 300 : 400 }}>
-                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={false} key={selBay.id} tap={true} touchZoom={true}>
+                <div style={{ height: isMobile ? 'calc(100vh - 140px)' : 500, position: 'relative', minHeight: isMobile ? 400 : 400 }}>
+                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={true} touchZoom={true} maxZoom={20} minZoom={9}>
                     <LayersControl position="topright">
-                      <LayersControl.BaseLayer checked name="Sentinel-2 Satellite">
-                        <TileLayer url="https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/{z}/{y}/{x}.jpg" maxZoom={15} attribution="Sentinel-2 &copy; EOX" />
+                      <LayersControl.BaseLayer checked name="HD Satellite">
+                        <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={19} attribution="Esri" />
+                      </LayersControl.BaseLayer>
+                      <LayersControl.BaseLayer name="Google Satellite">
+                        <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" />
+                      </LayersControl.BaseLayer>
+                      <LayersControl.BaseLayer name="Google Hybrid">
+                        <TileLayer url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}" maxZoom={20} attribution="Google" />
                       </LayersControl.BaseLayer>
                       <LayersControl.BaseLayer name="USGS Aerial">
                         <TileLayer url="https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}" maxZoom={16} attribution="USGS" />
-                      </LayersControl.BaseLayer>
-                      <LayersControl.BaseLayer name="ESRI World Imagery">
-                        <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={18} attribution="Esri" />
                       </LayersControl.BaseLayer>
                     </LayersControl>
 
@@ -749,7 +752,7 @@ export default function App() {
 
                     {/* Depth markers */}
                     {mapLayers.depthMarkers && !showRoute && bayDepthMarkers.map((d) => (
-                      <Marker key={'dm' + d.id} position={bayConfig.toLatLng(d.position)} icon={depthMarkerIcon(d.depth, d.bottomType)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('depth', d.id); }, dragend: (e) => handleMarkerDragEnd('depth', d.id, e) }}>
+                      <Marker key={'dm' + d.id} position={bayConfig.toLatLng(d.position)} icon={depthMarkerIcon(d.depth, d.bottomType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('depth', d.id); }, dragend: (e) => handleMarkerDragEnd('depth', d.id, e) }}>
                         <Tooltip><b>{d.depth}ft</b> - {d.bottomType}{d.note ? ` | ${d.note}` : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                       </Marker>
                     ))}
@@ -772,7 +775,7 @@ export default function App() {
                     {mapLayers.shellPads && !showRoute && bayShellPads.map((sp) => (
                       <React.Fragment key={'sp' + sp.id}>
                         <Circle center={bayConfig.toLatLng(sp.position)} radius={sp.radius * 80} pathOptions={{ color: shellColor(sp.shellType), weight: 1.5, fillColor: shellColor(sp.shellType), fillOpacity: editMode ? 0.2 : 0.12, dashArray: shellDash(sp.shellType) }} />
-                        <Marker position={bayConfig.toLatLng(sp.position)} icon={shellPadIcon(sp.shellType)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('shellpad', sp.id); }, dragend: (e) => handleMarkerDragEnd('shellpad', sp.id, e) }}>
+                        <Marker position={bayConfig.toLatLng(sp.position)} icon={shellPadIcon(sp.shellType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('shellpad', sp.id); }, dragend: (e) => handleMarkerDragEnd('shellpad', sp.id, e) }}>
                           <Tooltip><b>{sp.label || shellTypeLabel(sp.shellType)}</b>{sp.note ? `\n${sp.note}` : ''}{editMode ? '\nClick to edit | Drag to move' : ''}</Tooltip>
                         </Marker>
                       </React.Fragment>
@@ -780,14 +783,14 @@ export default function App() {
 
                     {/* Launch markers */}
                     {mapLayers.launches && !showRoute && bayLaunches.map((l) => (
-                      <Marker key={`l${l.id}`} position={bayConfig.toLatLng(l.position)} icon={launchIcon(l.type)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('launch', l.id); }, dragend: (e) => handleMarkerDragEnd('launch', l.id, e) }}>
+                      <Marker key={`l${l.id}`} position={bayConfig.toLatLng(l.position)} icon={launchIcon(l.type, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('launch', l.id); }, dragend: (e) => handleMarkerDragEnd('launch', l.id, e) }}>
                         <Tooltip><b>{l.name}</b><br />{editMode ? 'Drag to move \u2022 Click to edit' : l.notes}</Tooltip>
                       </Marker>
                     ))}
 
                     {/* Photo markers */}
                     {mapLayers.photos && !showRoute && bayPhotos.map((p) => (
-                      <Marker key={`p${p.id}`} position={bayConfig.toLatLng(p.position)} icon={photoIcon()} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('photo', p.id); }, dragend: (e) => handleMarkerDragEnd('photo', p.id, e) }}>
+                      <Marker key={`p${p.id}`} position={bayConfig.toLatLng(p.position)} icon={photoIcon(isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('photo', p.id); }, dragend: (e) => handleMarkerDragEnd('photo', p.id, e) }}>
                         {!editMode && <Popup><b>{p.caption}</b><br /><span style={{ fontSize: 11 }}>by {p.user} \u2022 {p.time}</span></Popup>}
                         {editMode && <Tooltip>Drag to move - Click to edit</Tooltip>}
                       </Marker>
@@ -797,12 +800,12 @@ export default function App() {
                     {showRoute && routeCoords.length > 0 && <>
                       <Polyline positions={routeCoords} pathOptions={{ color: C.cyan, weight: 3, dashArray: '8 6', opacity: 0.3 }} />
                       {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 4, opacity: 0.9 }} />}
-                      <Marker position={routeCoords[0]} icon={harborIcon()} eventHandlers={{ click: () => setRouteStep(0) }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />Starting point</Tooltip></Marker>
+                      <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} eventHandlers={{ click: () => setRouteStep(0) }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />Starting point</Tooltip></Marker>
                       {curRoute.slice(1).map((w, i) => {
                         const idx = i + 1;
                         const status = idx < routeStep ? 'done' : idx === routeStep ? 'active' : 'pending';
                         return (
-                          <Marker key={`wp${idx}`} position={[w.lat, w.lng]} icon={waypointIcon(idx, status)} eventHandlers={{ click: () => setRouteStep(idx) }}>
+                          <Marker key={`wp${idx}`} position={[w.lat, w.lng]} icon={waypointIcon(idx, status, isMobile)} eventHandlers={{ click: () => setRouteStep(idx) }}>
                             <Tooltip><b>{w.title}</b><br />{w.desc}<br />Depth: {w.depth}{w.dist > 0 ? ' \u2022 ' + w.dist.toFixed(1) + ' NM' : ''}</Tooltip>
                           </Marker>
                         );
@@ -812,7 +815,7 @@ export default function App() {
 
                     {/* Spot markers */}
                     {mapLayers.spots && !showRoute && filtered.map((s) => (
-                      <Marker key={`s${s.id}`} position={bayConfig.toLatLng(s.position)} icon={spotIcon(s.type, selSpot?.id === s.id)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
+                      <Marker key={`s${s.id}`} position={bayConfig.toLatLng(s.position)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
                         <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
                     ))}
@@ -834,35 +837,35 @@ export default function App() {
 
                     {/* Kayak launches */}
                     {mapLayers.kayakLaunches && !showRoute && KAYAK_LAUNCHES.filter((l) => l.bay === (selBay?.id || 'matagorda')).map((kl) => (
-                      <Marker key={kl.id} position={[kl.lat, kl.lng]} icon={kayakLaunchIcon()}>
+                      <Marker key={kl.id} position={[kl.lat, kl.lng]} icon={kayakLaunchIcon(isMobile)}>
                         <Popup><b>{kl.name}</b><br/><span style={{ fontSize: 11 }}>{kl.notes}</span>{kl.amenities?.length > 0 && <><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{kl.amenities.join(' | ')}</span></>}</Popup>
                       </Marker>
                     ))}
 
                     {/* Boat ramps */}
                     {mapLayers.launches && !showRoute && BOAT_RAMPS.filter((r) => r.bay === (selBay?.id || 'matagorda')).map((br) => (
-                      <Marker key={br.id} position={[br.lat, br.lng]} icon={launchIcon('boat')}>
+                      <Marker key={br.id} position={[br.lat, br.lng]} icon={launchIcon('boat', isMobile)}>
                         <Popup><b>{br.name}</b><br/><span style={{ fontSize: 11 }}>{br.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>Fee: {br.fee} | {br.amenities?.join(', ')}</span></Popup>
                       </Marker>
                     ))}
 
                     {/* Bait shops */}
                     {mapLayers.baitShops && !showRoute && BAIT_SHOPS.filter((s) => s.bay === (selBay?.id || 'matagorda')).map((bs) => (
-                      <Marker key={bs.id} position={[bs.lat, bs.lng]} icon={baitShopIcon()}>
+                      <Marker key={bs.id} position={[bs.lat, bs.lng]} icon={baitShopIcon(isMobile)}>
                         <Popup><b>{bs.name}</b><br/><span style={{ fontSize: 11 }}>{bs.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{bs.hours}{bs.phone ? ' | ' + bs.phone : ''}</span></Popup>
                       </Marker>
                     ))}
 
                     {/* Marinas / Harbors */}
                     {mapLayers.marinas && !showRoute && MARINAS.filter((m) => m.bay === (selBay?.id || 'matagorda')).map((ma) => (
-                      <Marker key={ma.id} position={[ma.lat, ma.lng]} icon={marinaIcon()}>
+                      <Marker key={ma.id} position={[ma.lat, ma.lng]} icon={marinaIcon(isMobile)}>
                         <Popup><b>{ma.name}</b><br/><span style={{ fontSize: 11 }}>{ma.notes}</span><br/><span style={{ fontSize: 10, color: '#6b7280' }}>{ma.slips} slips</span></Popup>
                       </Marker>
                     ))}
 
                     {/* Custom user POIs (permanent) */}
                     {customPOIs.filter((p) => p.bay === (selBay?.id || 'matagorda')).map((poi) => (
-                      <Marker key={poi.id} position={[poi.lat, poi.lng]} icon={poi.poiType === 'baitshop' ? baitShopIcon() : poi.poiType === 'marina' ? marinaIcon() : poi.poiType === 'kayak' ? kayakLaunchIcon() : launchIcon('boat')} draggable={editMode} eventHandlers={{ dragend: (e) => { const ll = e.target.getLatLng(); setCustomPOIs((prev) => prev.map((p) => p.id === poi.id ? { ...p, lat: ll.lat, lng: ll.lng } : p)); } }}>
+                      <Marker key={poi.id} position={[poi.lat, poi.lng]} icon={poi.poiType === 'baitshop' ? baitShopIcon(isMobile) : poi.poiType === 'marina' ? marinaIcon(isMobile) : poi.poiType === 'kayak' ? kayakLaunchIcon(isMobile) : launchIcon('boat', isMobile)} draggable={editMode} eventHandlers={{ dragend: (e) => { const ll = e.target.getLatLng(); setCustomPOIs((prev) => prev.map((p) => p.id === poi.id ? { ...p, lat: ll.lat, lng: ll.lng } : p)); } }}>
                         <Popup><b>{poi.name}</b><br/><span style={{ fontSize: 11 }}>{poi.notes || ''}</span></Popup>
                       </Marker>
                     ))}
