@@ -7,7 +7,7 @@ import { C, Fnt, FM, sc, si, li } from './utils/theme';
 import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGPS, formatGPS } from './utils/geo';
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
-import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute } from './data/bays';
+import { BAY_CONFIGS, BAY_HARBORS, CHANNEL_WAYPOINTS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, BOATSHARE_LISTINGS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
 import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, waveHeightIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
@@ -45,16 +45,16 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   // ─── PERSISTED STATE (localStorage) ───
-  const [allSpots, setAllSpots] = useLocalStorage('tt_spots', DEFAULT_SPOTS);
-  const [launches, setLaunches] = useLocalStorage('tt_launches', DEFAULT_LAUNCHES);
-  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones', DEFAULT_SHADE_ZONES);
-  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines', DEFAULT_WADE_LINES);
-  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos', DEFAULT_PHOTOS);
+  const [allSpots, setAllSpots] = useLocalStorage('tt_spots2', DEFAULT_SPOTS);
+  const [launches, setLaunches] = useLocalStorage('tt_launches2', DEFAULT_LAUNCHES);
+  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones2', DEFAULT_SHADE_ZONES);
+  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines2', DEFAULT_WADE_LINES);
+  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos2', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
-  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth', DEFAULT_DEPTH_MARKERS);
-  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars', DEFAULT_SAND_BARS);
-  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads', DEFAULT_SHELL_PADS);
+  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth2', DEFAULT_DEPTH_MARKERS);
+  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars2', DEFAULT_SAND_BARS);
+  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads2', DEFAULT_SHELL_PADS);
   const [mapLayers, setMapLayers] = useLocalStorage('tt_layers2', { wadeLines: true, wadeZones: true, castRange: true, depthMarkers: true, sandBars: true, shellPads: true, spots: true, launches: true, photos: true, kayakLaunches: true, baitShops: true, marinas: true, areaLabels: true, windArrows: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
@@ -99,7 +99,7 @@ export default function App() {
   const [edSearch, setEdSearch] = useState('');
   const [edSortBy, setEdSortBy] = useState('name');
   const [gpsInput, setGpsInput] = useState({ mode: 'click', lat: '', lng: '', dms: '', format: 'dd' });
-  const [newSpotDraft, setNewSpotDraft] = useState({ name: '', type: 'wade', species: [], bestTide: 'Incoming', bestTime: '', lures: [], desc: '', gps: { lat: '', lng: '' }, position: { x: 50, y: 50 } });
+  const [newSpotDraft, setNewSpotDraft] = useState({ name: '', type: 'wade', species: [], bestTide: 'Incoming', bestTime: '', lures: [], desc: '', lat: 0, lng: 0 });
   const [photoGPS, setPhotoGPS] = useState(null);
   const [newShade, setNewShade] = useState({ type: 'wade', label: '', cx: 50, cy: 50, rx: 8, ry: 5 });
   const [newLaunch, setNewLaunch] = useState({ name: '', type: 'boat', gps: '', notes: '' });
@@ -156,17 +156,16 @@ export default function App() {
   // ─── NAVIGATION ROUTE ───
   const curRoute = useMemo(() => {
     if (!selSpot || !selBay) return [];
-    const route = generateRoute(selBay.id, selSpot.position, selSpot.name);
+    const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
+    const route = generateRoute(selBay.id, sLat, sLng, selSpot.name);
     return route.map((wp, i, arr) => {
-      const [lat, lng] = bayConfig.toLatLng(wp.pos);
       let dist = 0, brng = 0, brngLbl = '';
       if (i > 0) {
-        const [pLat, pLng] = bayConfig.toLatLng(arr[i - 1].pos);
-        dist = haversineNM(pLat, pLng, lat, lng);
-        brng = calcBearing(pLat, pLng, lat, lng);
+        dist = haversineNM(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
+        brng = calcBearing(arr[i - 1].lat, arr[i - 1].lng, wp.lat, wp.lng);
         brngLbl = bearingLabel(brng);
       }
-      return { ...wp, lat, lng, dist, brng, brngLbl, cumDist: 0 };
+      return { ...wp, dist, brng, brngLbl, cumDist: 0 };
     });
   }, [selSpot, selBay, bayConfig]);
 
@@ -177,7 +176,7 @@ export default function App() {
   // ─── DISTANCE FROM USER ───
   const distFromUser = useMemo(() => {
     if (!geo.position || !selSpot || !selBay) return null;
-    const [lat, lng] = bayConfig.toLatLng(selSpot.position);
+    const [lat, lng] = itemToLatLng(selSpot, bayConfig);
     return haversineNM(geo.position.lat, geo.position.lng, lat, lng);
   }, [geo.position, selSpot, selBay, bayConfig]);
 
@@ -205,25 +204,27 @@ export default function App() {
   };
 
   const posToGPSStr = (pos) => {
-    const [lat, lng] = bayConfig.toLatLng(pos);
+    let lat, lng;
+    if (pos && pos.lat != null && pos.lng != null) { lat = pos.lat; lng = pos.lng; }
+    else { [lat, lng] = bayConfig.toLatLng(pos); }
     return { lat: Math.abs(lat).toFixed(4) + '\u00B0' + (lat >= 0 ? 'N' : 'S'), lng: Math.abs(lng).toFixed(4) + '\u00B0' + (lng <= 0 ? 'W' : 'E') };
   };
 
   const shadeToPolygon = (z) => {
     const pts = [];
+    const center = zoneToLatLng(z, bayConfig);
+    const rLat = z.radiusLat || (z.ry != null ? (z.ry / 100) * 0.14 : 0.008);
+    const rLng = z.radiusLng || (z.rx != null ? (z.rx / 100) * 0.20 : 0.015);
     for (let i = 0; i <= 36; i++) {
       const a = (i / 36) * Math.PI * 2;
-      const latR = (z.ry / 100) * 0.32;
-      const lngR = (z.rx / 100) * 0.62;
-      const center = bayConfig.toLatLng({ x: z.cx, y: z.cy });
-      pts.push([center[0] + Math.sin(a) * latR, center[1] + Math.cos(a) * lngR]);
+      pts.push([center[0] + Math.sin(a) * rLat, center[1] + Math.cos(a) * rLng]);
     }
     return pts;
   };
 
   const getCastLineOffsets = (pts, rangeMeters) => {
     if (pts.length < 2) return { left: [], right: [] };
-    const coords = pts.map((p) => bayConfig.toLatLng(p));
+    const coords = pts.map((p) => itemToLatLng(p, bayConfig));
     const left = []; const right = [];
     const mPerLat = 111320;
     for (let i = 0; i < coords.length; i++) {
@@ -248,7 +249,7 @@ export default function App() {
 
   const routeBounds = useMemo(() => {
     if (showRoute && routeCoords.length >= 2) return routeCoords;
-    if (filtered.length >= 2) return filtered.map((s) => bayConfig.toLatLng(s.position));
+    if (filtered.length >= 2) return filtered.map((s) => itemToLatLng(s, bayConfig));
     return null;
   }, [showRoute, routeCoords, filtered, bayConfig]);
 
@@ -277,14 +278,14 @@ export default function App() {
   const handleMapRightClick = (e) => {
     e.originalEvent.preventDefault();
     if (drawingLine) {
-      const pos = latLngToPosition(e.latlng.lat, e.latlng.lng);
-      setDrawingLine((prev) => ({ ...prev, points: [...prev.points, pos] }));
+      const pt = { lat: e.latlng.lat, lng: e.latlng.lng };
+      setDrawingLine((prev) => ({ ...prev, points: [...prev.points, pt] }));
       showT('Point ' + (drawingLine.points.length + 1) + ' added');
       return;
     }
     if (drawingPolygon) {
-      const pos = latLngToPosition(e.latlng.lat, e.latlng.lng);
-      setDrawingPolygon((prev) => ({ ...prev, points: [...prev.points, pos] }));
+      const pt = { lat: e.latlng.lat, lng: e.latlng.lng };
+      setDrawingPolygon((prev) => ({ ...prev, points: [...prev.points, pt] }));
       showT('Point ' + (drawingPolygon.points.length + 1) + ' added');
       return;
     }
@@ -298,39 +299,40 @@ export default function App() {
 
   const handleAddFromCtx = (type) => {
     if (!ctxMenu) return;
-    const pos = latLngToPosition(ctxMenu.lat, ctxMenu.lng);
-    const gps = posToGPSStr(pos);
+    const lat = ctxMenu.lat;
+    const lng = ctxMenu.lng;
+    const gps = posToGPSStr({ lat, lng });
     const id = Date.now();
     const bay = selBay?.id || 'matagorda';
     if (type === 'wade-line') {
-      setDrawingLine({ points: [pos], label: 'New Wade Line' });
+      setDrawingLine({ points: [{ lat, lng }], label: 'New Wade Line' });
       setCtxMenu(null);
       showT('Wade line started! Right-click map to add points.');
       return;
     }
     if (type === 'wade-zone') {
-      const newZ = { id, type: 'wade', label: 'New Wade Zone', cx: pos.x, cy: pos.y, rx: 6, ry: 4, color: C.amber, bay, userAdded: true };
+      const newZ = { id, type: 'wade', label: 'New Wade Zone', lat, lng, radiusLat: 0.006, radiusLng: 0.012, color: C.amber, bay, userAdded: true };
       setShadeZones((prev) => [...prev, newZ]);
       setEditPopup({ type: 'zone', id, data: newZ });
       setCtxMenu(null);
       return;
     }
     if (type === 'depth') {
-      const newD = { id, bay, position: pos, depth: 3, bottomType: 'sand', note: '', userAdded: true };
+      const newD = { id, bay, lat, lng, depth: 3, bottomType: 'sand', note: '', userAdded: true };
       setDepthMarkers((prev) => [...prev, newD]);
       setEditPopup({ type: 'depth', id, data: newD });
       setCtxMenu(null);
       return;
     }
     if (type === 'sand-bar') {
-      setDrawingPolygon({ points: [pos], label: 'New Sand Bar' });
+      setDrawingPolygon({ points: [{ lat, lng }], label: 'New Sand Bar' });
       setCtxMenu(null);
       showT('Sand bar started! Right-click to add points.');
       return;
     }
     if (type.startsWith('shell-')) {
       const st = type.replace('shell-', '');
-      const newSP = { id, bay, position: pos, shellType: st, radius: 5, label: '', note: '', userAdded: true };
+      const newSP = { id, bay, lat, lng, shellType: st, radius: 5, label: '', note: '', userAdded: true };
       setShellPads((prev) => [...prev, newSP]);
       setEditPopup({ type: 'shellpad', id, data: newSP });
       setCtxMenu(null);
@@ -338,11 +340,11 @@ export default function App() {
     }
     if (type.startsWith('launch-')) {
       const lt = type.replace('launch-', '');
-      const newL = { id, name: 'New Launch', type: lt, position: pos, gps: gps.lat + ', ' + gps.lng, notes: '', bay, userAdded: true };
+      const newL = { id, name: 'New Launch', type: lt, lat, lng, notes: '', bay, userAdded: true };
       setLaunches((prev) => [...prev, newL]);
       setEditPopup({ type: 'launch', id, data: newL });
     } else {
-      const newS = { id, bay, name: 'New Spot', type, position: pos, gps, rating: 0, species: [], bestTide: 'Any', bestTime: '', bestSeason: '', bestWind: '', lures: [], desc: '', parking: pos, media: [], userAdded: true };
+      const newS = { id, bay, name: 'New Spot', type, lat, lng, rating: 0, species: [], bestTide: 'Any', bestTime: '', bestSeason: '', bestWind: '', lures: [], desc: '', media: [], userAdded: true };
       setAllSpots((prev) => [...prev, newS]);
       setEditPopup({ type: 'spot', id, data: newS });
     }
@@ -373,45 +375,46 @@ export default function App() {
     dragJustEnded.current = true;
     setTimeout(() => { dragJustEnded.current = false; }, 300);
     const ll = e.target.getLatLng();
-    const newPos = latLngToPosition(ll.lat, ll.lng);
-    const newGps = posToGPSStr(newPos);
-    const gpsStr = ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5);
+    const newLat = ll.lat;
+    const newLng = ll.lng;
+    const gpsStr = newLat.toFixed(5) + ', ' + newLng.toFixed(5);
     if (markerType === 'spot') {
-      setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, position: newPos, gps: newGps } : s));
-      if (selSpot?.id === id) setSelSpot((prev) => prev ? { ...prev, position: newPos, gps: newGps } : prev);
+      setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, lat: newLat, lng: newLng } : s));
+      if (selSpot?.id === id) setSelSpot((prev) => prev ? { ...prev, lat: newLat, lng: newLng } : prev);
     } else if (markerType === 'launch') {
-      setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, position: newPos, gps: newGps.lat + ', ' + newGps.lng } : l));
+      setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, lat: newLat, lng: newLng } : l));
     } else if (markerType === 'photo') {
-      setCommunityPhotos((prev) => prev.map((p) => p.id === id ? { ...p, position: newPos } : p));
+      setCommunityPhotos((prev) => prev.map((p) => p.id === id ? { ...p, lat: newLat, lng: newLng } : p));
     } else if (markerType === 'zone-center') {
-      setShadeZones((prev) => prev.map((z) => z.id === id ? { ...z, cx: newPos.x, cy: newPos.y } : z));
+      setShadeZones((prev) => prev.map((z) => z.id === id ? { ...z, lat: newLat, lng: newLng } : z));
     } else if (markerType === 'wade-pt') {
-      setWadeLines((prev) => prev.map((wl) => wl.id === id.lineId ? { ...wl, points: wl.points.map((p, i) => i === id.ptIndex ? newPos : p) } : wl));
+      setWadeLines((prev) => prev.map((wl) => wl.id === id.lineId ? { ...wl, points: wl.points.map((p, i) => i === id.ptIndex ? { lat: newLat, lng: newLng } : p) } : wl));
     } else if (markerType === 'depth') {
-      setDepthMarkers((prev) => prev.map((d) => d.id === id ? { ...d, position: newPos } : d));
+      setDepthMarkers((prev) => prev.map((d) => d.id === id ? { ...d, lat: newLat, lng: newLng } : d));
     } else if (markerType === 'shellpad') {
-      setShellPads((prev) => prev.map((sp) => sp.id === id ? { ...sp, position: newPos } : sp));
+      setShellPads((prev) => prev.map((sp) => sp.id === id ? { ...sp, lat: newLat, lng: newLng } : sp));
     } else if (markerType === 'sandbar-pt') {
-      setSandBars((prev) => prev.map((sb) => sb.id === id.barId ? { ...sb, points: sb.points.map((p, i) => i === id.ptIndex ? newPos : p) } : sb));
+      setSandBars((prev) => prev.map((sb) => sb.id === id.barId ? { ...sb, points: sb.points.map((p, i) => i === id.ptIndex ? { lat: newLat, lng: newLng } : p) } : sb));
     } else if (markerType === 'zone-resize') {
       const z = shadeZones.find((z) => z.id === id.zoneId);
       if (z) {
+        const center = zoneToLatLng(z, bayConfig);
         if (id.dir === 'n' || id.dir === 's') {
-          const newRy = Math.max(2, Math.abs(newPos.y - z.cy));
-          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, ry: newRy } : zone));
+          const newR = Math.max(0.002, Math.abs(newLat - center[0]));
+          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, radiusLat: newR } : zone));
         } else {
-          const newRx = Math.max(2, Math.abs(newPos.x - z.cx));
-          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, rx: newRx } : zone));
+          const newR = Math.max(0.003, Math.abs(newLng - center[1]));
+          setShadeZones((prev) => prev.map((zone) => zone.id === id.zoneId ? { ...zone, radiusLng: newR } : zone));
         }
       }
     }
     if (editPopup) {
       if (markerType === 'spot' && editPopup.type === 'spot' && editPopup.id === id) {
-        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, position: newPos, gps: newGps } }));
+        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, lat: newLat, lng: newLng } }));
       } else if (markerType === 'launch' && editPopup.type === 'launch' && editPopup.id === id) {
-        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, position: newPos, gps: newGps.lat + ', ' + newGps.lng } }));
+        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, lat: newLat, lng: newLng } }));
       } else if (markerType === 'zone-center' && editPopup.type === 'zone' && editPopup.id === id) {
-        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, cx: newPos.x, cy: newPos.y } }));
+        setEditPopup((prev) => ({ ...prev, data: { ...prev.data, lat: newLat, lng: newLng } }));
       }
     }
     showT(gpsStr);
@@ -474,10 +477,9 @@ export default function App() {
   const getEditGPS = () => {
     const d = editData;
     if (!d) return '';
-    if (d.position) return posToGPS(d.position).str;
-    if (d.cx != null) return posToGPS({ x: d.cx, y: d.cy }).str;
-    if (d.gps && typeof d.gps === 'string') return d.gps;
-    if (d.gps) return d.gps.lat + ', ' + d.gps.lng;
+    if (d.lat != null && d.lng != null) return d.lat.toFixed(5) + ', ' + d.lng.toFixed(5);
+    if (d.position) { const [la, lo] = bayConfig.toLatLng(d.position); return la.toFixed(5) + ', ' + lo.toFixed(5); }
+    if (d.cx != null) { const [la, lo] = bayConfig.toLatLng({ x: d.cx, y: d.cy }); return la.toFixed(5) + ', ' + lo.toFixed(5); }
     return '';
   };
 
@@ -686,27 +688,30 @@ export default function App() {
                       </Polygon>
                     ))}
 
-                    {editMode && mapLayers.wadeZones && !showRoute && bayShades.map((z) => (
-                      <React.Fragment key={'zc' + z.id}>
-                        <Marker position={bayConfig.toLatLng({ x: z.cx, y: z.cy })} icon={zoneCenterIcon(z.color)} draggable={true} eventHandlers={{ click: () => selectForEdit('zone', z.id), dragend: (e) => handleMarkerDragEnd('zone-center', z.id, e) }}>
+                    {editMode && mapLayers.wadeZones && !showRoute && bayShades.map((z) => {
+                      const zc = zoneToLatLng(z, bayConfig);
+                      const rLat = z.radiusLat || (z.ry != null ? (z.ry / 100) * 0.14 : 0.008);
+                      const rLng = z.radiusLng || (z.rx != null ? (z.rx / 100) * 0.20 : 0.015);
+                      return <React.Fragment key={'zc' + z.id}>
+                        <Marker position={zc} icon={zoneCenterIcon(z.color)} draggable={true} eventHandlers={{ click: () => selectForEdit('zone', z.id), dragend: (e) => handleMarkerDragEnd('zone-center', z.id, e) }}>
                           <Tooltip>Drag to move {z.label}</Tooltip>
                         </Marker>
                         {[
-                          { dir: 'n', pos: { x: z.cx, y: z.cy - z.ry } },
-                          { dir: 's', pos: { x: z.cx, y: z.cy + z.ry } },
-                          { dir: 'e', pos: { x: z.cx + z.rx, y: z.cy } },
-                          { dir: 'w', pos: { x: z.cx - z.rx, y: z.cy } },
+                          { dir: 'n', pos: [zc[0] + rLat, zc[1]] },
+                          { dir: 's', pos: [zc[0] - rLat, zc[1]] },
+                          { dir: 'e', pos: [zc[0], zc[1] + rLng] },
+                          { dir: 'w', pos: [zc[0], zc[1] - rLng] },
                         ].map((h) => (
-                          <Marker key={`rh-${z.id}-${h.dir}`} position={bayConfig.toLatLng(h.pos)} icon={resizeHandleIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('zone-resize', { zoneId: z.id, dir: h.dir }, e) }}>
+                          <Marker key={`rh-${z.id}-${h.dir}`} position={h.pos} icon={resizeHandleIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('zone-resize', { zoneId: z.id, dir: h.dir }, e) }}>
                             <Tooltip>Drag to resize</Tooltip>
                           </Marker>
                         ))}
-                      </React.Fragment>
-                    ))}
+                      </React.Fragment>;
+                    })}
 
                     {/* Wade lines with cast envelopes */}
                     {mapLayers.wadeLines && !showRoute && bayWadeLines.map((wl) => {
-                      const lineCoords = wl.points.map((p) => bayConfig.toLatLng(p));
+                      const lineCoords = wl.points.map((p) => itemToLatLng(p, bayConfig));
                       const castMeters = (wl.castRange || 40) * 0.9144;
                       const cast = getCastLineOffsets(wl.points, castMeters);
                       const castEnvelope = cast.left.length > 1 ? [...cast.left, ...cast.right.slice().reverse()] : [];
@@ -722,7 +727,7 @@ export default function App() {
                         {mapLayers.castRange && midPt && <Marker position={midPt} icon={castDistLabel(wl.castRange || 40)} interactive={false} />}
                         {wl.direction && midPt && <Marker position={midPt} icon={L.divIcon({ className: '', html: `<div style="background:${wl.color};color:#000;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:14px;white-space:nowrap;pointer-events:none">\u2192 ${wl.direction}</div>`, iconSize: [30, 14], iconAnchor: [15, -4] })} interactive={false} />}
                         {editMode && wl.points.map((pt, pi) => (
-                          <Marker key={'wlp' + wl.id + '-' + pi} position={bayConfig.toLatLng(pt)} icon={wadePointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('wade-pt', { lineId: wl.id, ptIndex: pi }, e) }}>
+                          <Marker key={'wlp' + wl.id + '-' + pi} position={itemToLatLng(pt, bayConfig)} icon={wadePointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('wade-pt', { lineId: wl.id, ptIndex: pi }, e) }}>
                             <Tooltip>Point {pi + 1}/{wl.points.length} - drag to move</Tooltip>
                           </Marker>
                         ))}
@@ -731,9 +736,9 @@ export default function App() {
 
                     {/* Drawing line preview */}
                     {drawingLine && drawingLine.points.length > 0 && <>
-                      <Polyline positions={drawingLine.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: C.green, weight: 3, dashArray: '8 4' }} />
+                      <Polyline positions={drawingLine.points.map((p) => itemToLatLng(p, bayConfig))} pathOptions={{ color: C.green, weight: 3, dashArray: '8 4' }} />
                       {drawingLine.points.map((pt, i) => (
-                        <Marker key={'draw' + i} position={bayConfig.toLatLng(pt)} icon={wadePointIcon()}>
+                        <Marker key={'draw' + i} position={itemToLatLng(pt, bayConfig)} icon={wadePointIcon()}>
                           <Tooltip>Point {i + 1}</Tooltip>
                         </Marker>
                       ))}
@@ -741,10 +746,10 @@ export default function App() {
 
                     {/* Drawing polygon preview (sand bars) */}
                     {drawingPolygon && drawingPolygon.points.length > 0 && <>
-                      {drawingPolygon.points.length >= 3 && <Polygon positions={drawingPolygon.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4', fillColor: '#d4a574', fillOpacity: 0.15 }} />}
-                      {drawingPolygon.points.length < 3 && <Polyline positions={drawingPolygon.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4' }} />}
+                      {drawingPolygon.points.length >= 3 && <Polygon positions={drawingPolygon.points.map((p) => itemToLatLng(p, bayConfig))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4', fillColor: '#d4a574', fillOpacity: 0.15 }} />}
+                      {drawingPolygon.points.length < 3 && <Polyline positions={drawingPolygon.points.map((p) => itemToLatLng(p, bayConfig))} pathOptions={{ color: '#d4a574', weight: 2, dashArray: '6 4' }} />}
                       {drawingPolygon.points.map((pt, i) => (
-                        <Marker key={'drawp' + i} position={bayConfig.toLatLng(pt)} icon={sandBarPointIcon()}>
+                        <Marker key={'drawp' + i} position={itemToLatLng(pt, bayConfig)} icon={sandBarPointIcon()}>
                           <Tooltip>Point {i + 1}</Tooltip>
                         </Marker>
                       ))}
@@ -752,7 +757,7 @@ export default function App() {
 
                     {/* Depth markers */}
                     {mapLayers.depthMarkers && !showRoute && bayDepthMarkers.map((d) => (
-                      <Marker key={'dm' + d.id} position={bayConfig.toLatLng(d.position)} icon={depthMarkerIcon(d.depth, d.bottomType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('depth', d.id); }, dragend: (e) => handleMarkerDragEnd('depth', d.id, e) }}>
+                      <Marker key={'dm' + d.id} position={itemToLatLng(d, bayConfig)} icon={depthMarkerIcon(d.depth, d.bottomType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('depth', d.id); }, dragend: (e) => handleMarkerDragEnd('depth', d.id, e) }}>
                         <Tooltip><b>{d.depth}ft</b> - {d.bottomType}{d.note ? ` | ${d.note}` : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                       </Marker>
                     ))}
@@ -760,11 +765,11 @@ export default function App() {
                     {/* Sand bars */}
                     {mapLayers.sandBars && !showRoute && baySandBars.map((sb) => (
                       <React.Fragment key={'sb' + sb.id}>
-                        <Polygon positions={sb.points.map((p) => bayConfig.toLatLng(p))} pathOptions={{ color: '#d4a574', weight: 2, fillColor: '#d4a574', fillOpacity: editMode ? 0.25 : 0.18, dashArray: editMode ? '' : '6 4' }} eventHandlers={{ click: () => { if (editMode) selectForEdit('sandbar', sb.id); } }}>
+                        <Polygon positions={sb.points.map((p) => itemToLatLng(p, bayConfig))} pathOptions={{ color: '#d4a574', weight: 2, fillColor: '#d4a574', fillOpacity: editMode ? 0.25 : 0.18, dashArray: editMode ? '' : '6 4' }} eventHandlers={{ click: () => { if (editMode) selectForEdit('sandbar', sb.id); } }}>
                           <Tooltip><b>{sb.label}</b><br/>Depth: {sb.depth}ft{sb.note ? ` | ${sb.note}` : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                         </Polygon>
                         {editMode && sb.points.map((pt, pi) => (
-                          <Marker key={'sbp' + sb.id + '-' + pi} position={bayConfig.toLatLng(pt)} icon={sandBarPointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('sandbar-pt', { barId: sb.id, ptIndex: pi }, e) }}>
+                          <Marker key={'sbp' + sb.id + '-' + pi} position={itemToLatLng(pt, bayConfig)} icon={sandBarPointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('sandbar-pt', { barId: sb.id, ptIndex: pi }, e) }}>
                             <Tooltip>Sand bar point {pi + 1} - drag to move</Tooltip>
                           </Marker>
                         ))}
@@ -774,8 +779,8 @@ export default function App() {
                     {/* Shell pads */}
                     {mapLayers.shellPads && !showRoute && bayShellPads.map((sp) => (
                       <React.Fragment key={'sp' + sp.id}>
-                        <Circle center={bayConfig.toLatLng(sp.position)} radius={sp.radius * 80} pathOptions={{ color: shellColor(sp.shellType), weight: 1.5, fillColor: shellColor(sp.shellType), fillOpacity: editMode ? 0.2 : 0.12, dashArray: shellDash(sp.shellType) }} />
-                        <Marker position={bayConfig.toLatLng(sp.position)} icon={shellPadIcon(sp.shellType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('shellpad', sp.id); }, dragend: (e) => handleMarkerDragEnd('shellpad', sp.id, e) }}>
+                        <Circle center={itemToLatLng(sp, bayConfig)} radius={sp.radius * 80} pathOptions={{ color: shellColor(sp.shellType), weight: 1.5, fillColor: shellColor(sp.shellType), fillOpacity: editMode ? 0.2 : 0.12, dashArray: shellDash(sp.shellType) }} />
+                        <Marker position={itemToLatLng(sp, bayConfig)} icon={shellPadIcon(sp.shellType, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('shellpad', sp.id); }, dragend: (e) => handleMarkerDragEnd('shellpad', sp.id, e) }}>
                           <Tooltip><b>{sp.label || shellTypeLabel(sp.shellType)}</b>{sp.note ? `\n${sp.note}` : ''}{editMode ? '\nClick to edit | Drag to move' : ''}</Tooltip>
                         </Marker>
                       </React.Fragment>
@@ -783,14 +788,14 @@ export default function App() {
 
                     {/* Launch markers */}
                     {mapLayers.launches && !showRoute && bayLaunches.map((l) => (
-                      <Marker key={`l${l.id}`} position={bayConfig.toLatLng(l.position)} icon={launchIcon(l.type, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('launch', l.id); }, dragend: (e) => handleMarkerDragEnd('launch', l.id, e) }}>
+                      <Marker key={`l${l.id}`} position={itemToLatLng(l, bayConfig)} icon={launchIcon(l.type, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('launch', l.id); }, dragend: (e) => handleMarkerDragEnd('launch', l.id, e) }}>
                         <Tooltip><b>{l.name}</b><br />{editMode ? 'Drag to move \u2022 Click to edit' : l.notes}</Tooltip>
                       </Marker>
                     ))}
 
                     {/* Photo markers */}
                     {mapLayers.photos && !showRoute && bayPhotos.map((p) => (
-                      <Marker key={`p${p.id}`} position={bayConfig.toLatLng(p.position)} icon={photoIcon(isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('photo', p.id); }, dragend: (e) => handleMarkerDragEnd('photo', p.id, e) }}>
+                      <Marker key={`p${p.id}`} position={itemToLatLng(p, bayConfig)} icon={photoIcon(isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('photo', p.id); }, dragend: (e) => handleMarkerDragEnd('photo', p.id, e) }}>
                         {!editMode && <Popup><b>{p.caption}</b><br /><span style={{ fontSize: 11 }}>by {p.user} \u2022 {p.time}</span></Popup>}
                         {editMode && <Tooltip>Drag to move - Click to edit</Tooltip>}
                       </Marker>
@@ -815,7 +820,7 @@ export default function App() {
 
                     {/* Spot markers */}
                     {mapLayers.spots && !showRoute && filtered.map((s) => (
-                      <Marker key={`s${s.id}`} position={bayConfig.toLatLng(s.position)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
+                      <Marker key={`s${s.id}`} position={itemToLatLng(s, bayConfig)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
                         <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
                     ))}
@@ -825,12 +830,12 @@ export default function App() {
 
                     {/* Wind direction arrows */}
                     {mapLayers.windArrows && !showRoute && !editMode && weather.windSpeed > 0 && generateWindArrows(weather.windDir, weather.windSpeed, selBay?.id).map((a, i) => (
-                      <Marker key={'wa' + i} position={bayConfig.toLatLng({ x: a.x, y: a.y })} icon={windArrowIcon(a.dir, a.speed)} interactive={false} />
+                      <Marker key={'wa' + i} position={[a.lat, a.lng]} icon={windArrowIcon(a.dir, a.speed)} interactive={false} />
                     ))}
 
                     {/* Wave height numbers on the bay */}
                     {mapLayers.windArrows && !showRoute && !editMode && generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id).map((w, i) => (
-                      <Marker key={'wv' + i} position={bayConfig.toLatLng({ x: w.x, y: w.y })} icon={waveHeightIcon(w.label, w.height)} interactive={false} />
+                      <Marker key={'wv' + i} position={[w.lat, w.lng]} icon={waveHeightIcon(w.label, w.height)} interactive={false} />
                     ))}
 
                     {/* Bay area name labels */}
@@ -1064,8 +1069,8 @@ export default function App() {
                     </div>
                     <div style={{ padding: 14, fontSize: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.card2, borderRadius: 8, padding: '8px 10px', marginBottom: 10 }}>
-                        <div><div style={{ fontSize: 9, color: C.dim }}>GPS</div><div style={{ fontFamily: FM, fontSize: 12 }}>{selSpot.gps.lat}, {selSpot.gps.lng}</div></div>
-                        <button onClick={() => cpGPS(selSpot.gps)} style={{ padding: '4px 8px', borderRadius: 4, background: copied ? C.green : C.card, border: `1px solid ${C.bdr}`, color: copied ? '#fff' : C.mid, cursor: 'pointer', fontSize: 10, fontFamily: Fnt }}>{copied ? '\u2713' : 'Copy'}</button>
+                        <div><div style={{ fontSize: 9, color: C.dim }}>GPS</div><div style={{ fontFamily: FM, fontSize: 12 }}>{selSpot.lat != null ? selSpot.lat.toFixed(4) + '\u00B0N' : selSpot.gps?.lat || '--'}, {selSpot.lng != null ? Math.abs(selSpot.lng).toFixed(4) + '\u00B0W' : selSpot.gps?.lng || '--'}</div></div>
+                        <button onClick={() => cpGPS(selSpot.lat != null ? { lat: selSpot.lat.toFixed(5), lng: selSpot.lng.toFixed(5) } : selSpot.gps || {})} style={{ padding: '4px 8px', borderRadius: 4, background: copied ? C.green : C.card, border: `1px solid ${C.bdr}`, color: copied ? '#fff' : C.mid, cursor: 'pointer', fontSize: 10, fontFamily: Fnt }}>{copied ? '\u2713' : 'Copy'}</button>
                       </div>
                       {distFromUser != null && <div style={{ background: `${C.blue}15`, borderRadius: 8, padding: '8px 10px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${C.blue}30` }}>
                         <LocI s={14} c={C.blue} />

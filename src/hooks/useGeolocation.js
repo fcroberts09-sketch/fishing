@@ -63,25 +63,26 @@ export function useGeolocation() {
 
   // Auto-start watching on mount (user will see browser permission prompt)
   useEffect(() => {
-    if (navigator.geolocation) {
-      // Check if permission already granted (avoid prompt on first load)
-      if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-          if (result.state === 'granted') {
-            startWatching();
+    if (!navigator.geolocation) return () => {};
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+        if (result.state === 'granted' || result.state === 'prompt') {
+          startWatching();
+        }
+        result.onchange = () => {
+          if (result.state === 'granted') startWatching();
+          else if (result.state === 'denied') {
+            stopWatching();
+            setError('Location permission denied');
           }
-          // Listen for permission changes
-          result.onchange = () => {
-            if (result.state === 'granted') startWatching();
-            else if (result.state === 'denied') {
-              stopWatching();
-              setError('Location permission denied');
-            }
-          };
-        }).catch(() => {
-          // permissions API not available, try anyway
-        });
-      }
+        };
+      }).catch(() => {
+        // permissions API failed (common on iOS Safari) — try starting anyway
+        startWatching();
+      });
+    } else {
+      // No permissions API (older browsers / iOS) — just start
+      startWatching();
     }
     return () => stopWatching();
   }, [startWatching, stopWatching]);

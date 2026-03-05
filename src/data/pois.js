@@ -59,18 +59,18 @@ export const MARINAS = [
 // Geographic names embedded on the map like Google Maps
 export const BAY_AREA_LABELS = [
   // MATAGORDA
-  { id: 'al-1', bay: 'matagorda', name: 'East Matagorda Bay', lat: 28.7100, lng: -95.8400, size: 'large', type: 'water' },
+  { id: 'al-1', bay: 'matagorda', name: 'East Matagorda Bay', lat: 28.7100, lng: -95.8600, size: 'large', type: 'water' },
   { id: 'al-2', bay: 'matagorda', name: 'West Matagorda Bay', lat: 28.7200, lng: -96.1500, size: 'large', type: 'water' },
   { id: 'al-3', bay: 'matagorda', name: 'Tres Palacios Bay', lat: 28.7350, lng: -96.1800, size: 'medium', type: 'water' },
   { id: 'al-4', bay: 'matagorda', name: 'Oyster Lake', lat: 28.6950, lng: -95.9300, size: 'medium', type: 'water' },
-  { id: 'al-5', bay: 'matagorda', name: 'Colorado River', lat: 28.6750, lng: -95.9550, size: 'medium', type: 'water' },
-  { id: 'al-6', bay: 'matagorda', name: 'Shell Island', lat: 28.7250, lng: -95.8600, size: 'small', type: 'land' },
-  { id: 'al-7', bay: 'matagorda', name: 'Matagorda Peninsula', lat: 28.6500, lng: -95.9200, size: 'medium', type: 'land' },
-  { id: 'al-8', bay: 'matagorda', name: 'ICW', lat: 28.7000, lng: -95.9000, size: 'small', type: 'channel' },
-  { id: 'al-9', bay: 'matagorda', name: 'Bird Island', lat: 28.7100, lng: -95.8850, size: 'small', type: 'land' },
+  { id: 'al-5', bay: 'matagorda', name: 'Colorado River', lat: 28.6870, lng: -95.9700, size: 'medium', type: 'water' },
+  { id: 'al-6', bay: 'matagorda', name: 'Shell Island', lat: 28.7130, lng: -95.8570, size: 'small', type: 'land' },
+  { id: 'al-7', bay: 'matagorda', name: 'Matagorda Peninsula', lat: 28.6550, lng: -95.9200, size: 'medium', type: 'land' },
+  { id: 'al-8', bay: 'matagorda', name: 'ICW', lat: 28.7050, lng: -95.9000, size: 'small', type: 'channel' },
+  { id: 'al-9', bay: 'matagorda', name: 'Bird Island', lat: 28.7120, lng: -95.8780, size: 'small', type: 'land' },
   { id: 'al-10', bay: 'matagorda', name: 'Matagorda Ship Channel', lat: 28.6700, lng: -95.9850, size: 'small', type: 'channel' },
-  { id: 'al-11', bay: 'matagorda', name: 'Army Hole', lat: 28.7000, lng: -95.9000, size: 'small', type: 'water' },
-  { id: 'al-12', bay: 'matagorda', name: 'Chinquapin Flats', lat: 28.7250, lng: -95.8500, size: 'small', type: 'water' },
+  { id: 'al-11', bay: 'matagorda', name: 'Army Hole', lat: 28.7000, lng: -95.9080, size: 'small', type: 'water' },
+  { id: 'al-12', bay: 'matagorda', name: 'Chinquapin Flats', lat: 28.7240, lng: -95.8510, size: 'small', type: 'water' },
   { id: 'al-13', bay: 'matagorda', name: 'Boggy Bayou', lat: 28.7400, lng: -95.9800, size: 'small', type: 'water' },
   { id: 'al-14', bay: 'matagorda', name: 'Caney Creek', lat: 28.7350, lng: -95.9250, size: 'small', type: 'water' },
   // GALVESTON
@@ -95,25 +95,49 @@ export const BAY_AREA_LABELS = [
 ];
 
 // ─── WIND ARROW GRID ───
-// Wind arrows show direction wind is BLOWING TO (not coming from)
+// Generate wind arrows at GPS positions over water only
 export function generateWindArrows(windDir, windSpeed, bayId) {
   const arrows = [];
-  // Weather API gives direction wind comes FROM — flip 180° for blow direction
+  if (!windSpeed || windSpeed <= 0) return arrows;
+
+  // Weather API gives direction wind comes FROM - flip 180 for blow direction
   const blowDir = (windDir + 180) % 360;
-  // Sparser grid to reduce clutter
-  for (let gx = 12; gx <= 88; gx += 11) {
-    for (let gy = 18; gy <= 82; gy += 11) {
-      const localDir = blowDir + (Math.sin(gx * 0.1) * 4) + (Math.cos(gy * 0.1) * 4);
-      const edgeFactor = Math.min(gx, 100 - gx, gy, 100 - gy) / 20;
-      const localSpeed = windSpeed * Math.min(1, Math.max(0.3, edgeFactor));
-      if (localSpeed > 3) {
-        arrows.push({
-          x: gx + (Math.sin(gx + gy) * 1.2),
-          y: gy + (Math.cos(gx + gy) * 1.2),
-          dir: localDir,
-          speed: localSpeed,
-        });
-      }
+
+  // Water-only GPS positions for each bay
+  const waterPositions = bayId === 'galveston' ? [
+    // Galveston Bay main body
+    { lat: 29.32, lng: -94.84 }, { lat: 29.35, lng: -94.80 }, { lat: 29.38, lng: -94.85 },
+    { lat: 29.30, lng: -94.88 }, { lat: 29.34, lng: -94.76 }, { lat: 29.40, lng: -94.78 },
+    { lat: 29.36, lng: -94.90 }, { lat: 29.42, lng: -94.72 }, { lat: 29.46, lng: -94.80 },
+    // West Bay
+    { lat: 29.20, lng: -94.95 }, { lat: 29.22, lng: -94.92 }, { lat: 29.18, lng: -94.98 },
+    // Upper Bay / Trinity
+    { lat: 29.48, lng: -94.86 }, { lat: 29.50, lng: -94.76 },
+  ] : [
+    // East Matagorda Bay
+    { lat: 28.710, lng: -95.870 }, { lat: 28.715, lng: -95.850 }, { lat: 28.705, lng: -95.890 },
+    { lat: 28.718, lng: -95.840 }, { lat: 28.712, lng: -95.860 }, { lat: 28.700, lng: -95.910 },
+    // Central / ICW area
+    { lat: 28.705, lng: -95.920 }, { lat: 28.698, lng: -95.935 },
+    // Near river mouth
+    { lat: 28.692, lng: -95.960 }, { lat: 28.695, lng: -95.950 },
+    // South bay
+    { lat: 28.690, lng: -95.880 }, { lat: 28.695, lng: -95.900 },
+  ];
+
+  for (const pos of waterPositions) {
+    const jitter = Math.sin(pos.lat * 1000) * 3 + Math.cos(pos.lng * 1000) * 3;
+    const localDir = blowDir + jitter;
+    const speedVariation = 0.7 + Math.abs(Math.sin(pos.lat * 500 + pos.lng * 500)) * 0.3;
+    const localSpeed = windSpeed * speedVariation;
+
+    if (localSpeed > 1) {
+      arrows.push({
+        lat: pos.lat,
+        lng: pos.lng,
+        dir: localDir,
+        speed: localSpeed,
+      });
     }
   }
   return arrows;
@@ -121,7 +145,7 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
 
 // ─── WAVE HEIGHT CALCULATION ───
 // Simplified SMB (Sverdrup-Munk-Bretschneider) for shallow Texas bays
-// Wind speed in knots, fetch in nautical miles → wave height in feet
+// Wind speed in knots, fetch in nautical miles -> wave height in feet
 function calcWaveHeight(windSpeedKnots, fetchNM) {
   if (windSpeedKnots <= 0 || fetchNM <= 0) return 0;
   const U = windSpeedKnots * 0.5144; // m/s
@@ -146,31 +170,39 @@ function getFetch(bayId, windFromDir) {
   return fetches[sector];
 }
 
-// Generate wave height numbers to display on the bay
+// Generate wave height markers at GPS positions over water
 export function generateWaveMarkers(windDir, windSpeed, bayId) {
   const markers = [];
   const baseFetch = getFetch(bayId, windDir);
 
-  // Key positions across the bay with local fetch multipliers
-  const positions = [
-    { x: 30, y: 35, mult: 1.0 },
-    { x: 50, y: 50, mult: 0.9 },
-    { x: 70, y: 40, mult: 1.0 },
-    { x: 25, y: 60, mult: 0.5 },
-    { x: 55, y: 28, mult: 0.85 },
-    { x: 75, y: 62, mult: 0.55 },
-    { x: 42, y: 42, mult: 0.8 },
-    { x: 62, y: 58, mult: 0.5 },
+  // Water-only GPS positions with local fetch multipliers
+  const positions = bayId === 'galveston' ? [
+    { lat: 29.340, lng: -94.850, mult: 1.0 },
+    { lat: 29.300, lng: -94.810, mult: 0.9 },
+    { lat: 29.380, lng: -94.880, mult: 0.85 },
+    { lat: 29.200, lng: -94.950, mult: 0.5 },
+    { lat: 29.420, lng: -94.750, mult: 0.9 },
+    { lat: 29.360, lng: -94.780, mult: 1.0 },
+    { lat: 29.480, lng: -94.800, mult: 0.55 },
+    { lat: 29.250, lng: -94.920, mult: 0.6 },
+  ] : [
+    { lat: 28.710, lng: -95.865, mult: 1.0 },
+    { lat: 28.715, lng: -95.845, mult: 0.9 },
+    { lat: 28.700, lng: -95.905, mult: 0.85 },
+    { lat: 28.698, lng: -95.935, mult: 0.5 },
+    { lat: 28.705, lng: -95.885, mult: 0.9 },
+    { lat: 28.720, lng: -95.855, mult: 0.8 },
+    { lat: 28.692, lng: -95.955, mult: 0.55 },
+    { lat: 28.695, lng: -95.920, mult: 0.6 },
   ];
 
   for (const pos of positions) {
-    const edgeFactor = Math.min(pos.x, 100 - pos.x, pos.y, 100 - pos.y) / 25;
-    const localFetch = baseFetch * pos.mult * Math.min(1, Math.max(0.3, edgeFactor));
+    const localFetch = baseFetch * pos.mult;
     const height = calcWaveHeight(windSpeed, localFetch);
 
     markers.push({
-      x: pos.x,
-      y: pos.y,
+      lat: pos.lat,
+      lng: pos.lng,
       height,
       label: height < 0.3 ? 'Flat' : height.toFixed(1) + "'",
     });
