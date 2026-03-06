@@ -8,7 +8,7 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
-import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, waveHeightIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
+import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
@@ -45,7 +45,7 @@ export default function App() {
 
   // ─── PERSISTED STATE (localStorage) ───
   const [allSpots, setAllSpots] = useLocalStorage('tt_spots3', DEFAULT_SPOTS);
-  const [launches, setLaunches] = useLocalStorage('tt_launches3', DEFAULT_LAUNCHES);
+  const [launches, setLaunches] = useLocalStorage('tt_launches4', DEFAULT_LAUNCHES);
   const [shadeZones, setShadeZones] = useLocalStorage('tt_zones3', DEFAULT_SHADE_ZONES);
   const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines3', DEFAULT_WADE_LINES);
   const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos3', DEFAULT_PHOTOS);
@@ -187,10 +187,12 @@ export default function App() {
     }
     // Default: simple 2-point route from Matagorda Harbor to destination
     const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
-    const harbor = launches.find((l) => l.name === 'Matagorda Harbor') || launches.find((l) => l.bay === selBay?.id);
-    const startLat = harbor?.lat || sLat;
-    const startLng = harbor?.lng || sLng;
-    const startName = harbor?.name || 'Start';
+    // Hardcoded Matagorda Harbor coords as guaranteed fallback
+    const HARBOR = { lat: 28.694112, lng: -95.957777, name: 'Matagorda Harbor' };
+    const harbor = launches.find((l) => l.name === 'Matagorda Harbor');
+    const startLat = harbor?.lat || HARBOR.lat;
+    const startLng = harbor?.lng || HARBOR.lng;
+    const startName = harbor?.name || HARBOR.name;
     const route = generateRoute(startLat, startLng, startName, sLat, sLng, selSpot.name);
     return computeRouteStats(route);
   }, [selSpot, selBay, bayConfig, routeKey, savedRoutes, launches, computeRouteStats]);
@@ -942,11 +944,6 @@ export default function App() {
                       <Marker key={'wa' + i} position={[a.lat, a.lng]} icon={windArrowIcon(a.dir, a.speed)} interactive={false} />
                     ))}
 
-                    {/* Wave height numbers on the bay */}
-                    {mapLayers.windArrows && !showRoute && !editMode && generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id).map((w, i) => (
-                      <Marker key={'wv' + i} position={[w.lat, w.lng]} icon={waveHeightIcon(w.label, w.height)} interactive={false} />
-                    ))}
-
                     {/* Bay area name labels */}
                     {mapLayers.areaLabels && !showRoute && BAY_AREA_LABELS.filter((l) => l.bay === (selBay?.id || 'matagorda')).map((label) => (
                       <Marker key={label.id} position={[label.lat, label.lng]} icon={areaLabelIcon(label.name, label.size, label.type)} interactive={false} />
@@ -1254,6 +1251,17 @@ export default function App() {
                         <div style={{ background: C.card2, borderRadius: 6, padding: '6px 8px', textAlign: 'center' }}><div style={{ fontSize: 9, color: C.dim }}>Total</div><div style={{ fontWeight: 700, fontSize: 12, color: C.green }}>{curWP.cumDist.toFixed(1)} NM</div></div>
                       </div>
                     )}
+                    {/* Estimated bay wave height during navigation */}
+                    {!editingRoute && weather.windSpeed > 0 && (() => {
+                      const wm = generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id);
+                      const maxH = Math.max(...wm.map(w => w.height));
+                      const waveLabel = maxH < 0.3 ? 'Flat' : maxH < 0.5 ? 'Light chop' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough' : 'Very rough';
+                      const waveColor = maxH < 0.3 ? C.green : maxH < 0.5 ? '#84cc16' : maxH < 1.0 ? C.amber : maxH < 1.5 ? '#f97316' : C.red;
+                      return <div style={{ background: `${waveColor}10`, borderRadius: 6, padding: '6px 10px', marginBottom: 8, border: `1px solid ${waveColor}25`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ fontSize: 10, color: C.dim }}>Est. Bay Waves</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: waveColor }}>{maxH < 0.3 ? 'Flat' : `~${maxH.toFixed(1)}' ${waveLabel}`}</div>
+                      </div>;
+                    })()}
 
                     {/* Change start point */}
                     {editingRoute && (

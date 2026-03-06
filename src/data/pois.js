@@ -1,59 +1,18 @@
 // ─── KAYAK LAUNCHES ───
-// Real kayak launch locations for Matagorda and Galveston bay systems
-export const KAYAK_LAUNCHES = [
-  // MATAGORDA
-  { id: 'kl-1', bay: 'matagorda', name: 'Matagorda Bay Nature Park', type: 'kayak', lat: 28.6930, lng: -95.9570, notes: 'Free launch, sand beach, good for Oyster Lake access', amenities: ['parking', 'restrooms'] },
-  { id: 'kl-2', bay: 'matagorda', name: 'FM 2031 Beach Access', type: 'kayak', lat: 28.6385, lng: -95.9887, notes: 'Surf launch to jetties and nearshore', amenities: ['parking'] },
-  { id: 'kl-3', bay: 'matagorda', name: 'Colorado River Bridge Launch', type: 'kayak', lat: 28.6890, lng: -95.9740, notes: 'River access, paddle to river mouth flats', amenities: ['parking'] },
-  { id: 'kl-4', bay: 'matagorda', name: 'Chinquapin Rd Ramp', type: 'kayak', lat: 28.7240, lng: -95.8510, notes: 'East bay access, shallow draft only', amenities: ['parking'] },
-  { id: 'kl-5', bay: 'matagorda', name: 'Palacios City Ramp', type: 'kayak', lat: 28.7095, lng: -96.2150, notes: 'West Matagorda Bay, sheltered launch', amenities: ['parking', 'restrooms'] },
-  // GALVESTON
-  { id: 'kl-6', bay: 'galveston', name: 'Galveston Island State Park', type: 'kayak', lat: 29.1994, lng: -94.9675, notes: 'Best kayak launch in West Bay, protected water', amenities: ['parking', 'restrooms', 'camping'] },
-  { id: 'kl-7', bay: 'galveston', name: 'Jamaica Beach Pocket Park', type: 'kayak', lat: 29.1784, lng: -94.9805, notes: 'Small launch into West Bay, free', amenities: ['parking'] },
-  { id: 'kl-8', bay: 'galveston', name: 'San Luis Pass County Park', type: 'kayak', lat: 29.0825, lng: -95.1198, notes: 'Launch into pass, STRONG currents, experienced only', amenities: ['parking'] },
-  { id: 'kl-9', bay: 'galveston', name: 'Seawall Kayak Launch (61st St)', type: 'kayak', lat: 29.2850, lng: -94.8250, notes: 'Bay side launch near yacht basin', amenities: ['parking'] },
-  { id: 'kl-10', bay: 'galveston', name: 'Texas City Dike Kayak', type: 'kayak', lat: 29.3810, lng: -94.9050, notes: 'Launch off dike, access to flats and channel', amenities: ['parking'] },
-  { id: 'kl-11', bay: 'galveston', name: 'Eagle Point Kayak', type: 'kayak', lat: 29.4820, lng: -94.9180, notes: 'North bay access, sheltered in most winds', amenities: ['parking', 'restrooms'] },
-  { id: 'kl-12', bay: 'galveston', name: 'Kemah Boardwalk Ramp Area', type: 'kayak', lat: 29.5435, lng: -95.0235, notes: 'Clear Lake channel access, kayak-friendly', amenities: ['parking', 'restrooms'] },
-];
+// Add your own via Settings > Permanent Map Items
+export const KAYAK_LAUNCHES = [];
 
 // ─── BOAT RAMPS ───
-export const BOAT_RAMPS = [
-  // MATAGORDA
-  { id: 'br-1', bay: 'matagorda', name: 'Matagorda Harbor Ramp', type: 'boat', lat: 28.694112, lng: -95.957777, notes: '189 CR 213 — 6 lane ramp, fuel, bait, ice', amenities: ['fuel', 'bait', 'ice', 'restrooms', 'parking'], fee: 'Free' },
-  { id: 'br-2', bay: 'matagorda', name: 'River Bend Park Ramp', type: 'boat', lat: 28.6910, lng: -95.9690, notes: '2 lane ramp on Colorado River', amenities: ['parking', 'restrooms'], fee: 'Free' },
-  { id: 'br-3', bay: 'matagorda', name: 'Chinquapin Boat Ramp', type: 'boat', lat: 28.7245, lng: -95.8520, notes: 'East Matagorda access, concrete ramp', amenities: ['parking'], fee: 'Free' },
-  // GALVESTON
-  { id: 'br-4', bay: 'galveston', name: 'Galveston Yacht Basin', type: 'boat', lat: 29.2889, lng: -94.7912, notes: 'Full service, 4 lane ramp', amenities: ['fuel', 'bait', 'ice', 'restrooms', 'parking'], fee: '$10' },
-  { id: 'br-5', bay: 'galveston', name: 'Texas City Dike Ramp', type: 'boat', lat: 29.3834, lng: -94.9012, notes: 'Public 2 lane ramp', amenities: ['parking', 'restrooms'], fee: '$12' },
-  { id: 'br-6', bay: 'galveston', name: 'Eagle Point Marina', type: 'boat', lat: 29.4825, lng: -94.9190, notes: 'Protected, 3 lane ramp', amenities: ['fuel', 'bait', 'parking', 'restrooms'], fee: '$15' },
-  { id: 'br-7', bay: 'galveston', name: 'Bayou Vista Boat Ramp', type: 'boat', lat: 29.3345, lng: -94.9480, notes: 'West Bay access, 2 lane', amenities: ['parking'], fee: 'Free' },
-  { id: 'br-8', bay: 'galveston', name: 'Kemah/Clear Lake Ramp', type: 'boat', lat: 29.5440, lng: -95.0230, notes: 'Clear Lake access to upper Galveston Bay', amenities: ['fuel', 'bait', 'parking', 'restrooms'], fee: '$10' },
-];
+// Add your own via Settings > Permanent Map Items
+export const BOAT_RAMPS = [];
 
 // ─── BAIT SHOPS ───
-export const BAIT_SHOPS = [
-  // MATAGORDA
-  { id: 'bs-1', bay: 'matagorda', name: 'Matagorda Bait & Tackle', lat: 28.6905, lng: -95.9645, notes: 'Live shrimp, croaker, mullet. Full tackle shop.', hours: '4 AM - 8 PM', phone: '(979) 863-7775' },
-  { id: 'bs-2', bay: 'matagorda', name: 'Captain Chuck\'s Bait Camp', lat: 28.6860, lng: -95.9670, notes: 'Live bait, ice, snacks. At the harbor.', hours: '4:30 AM - 7 PM' },
-  { id: 'bs-3', bay: 'matagorda', name: 'Coastal Tackle Outfitters', lat: 28.6952, lng: -95.9592, notes: 'Premium tackle, rods, lures. Guide booking.', hours: '6 AM - 6 PM' },
-  // GALVESTON
-  { id: 'bs-4', bay: 'galveston', name: 'FishHead\'s Bait & Tackle', lat: 29.2920, lng: -94.7885, notes: 'Full bait shop at yacht basin. Live & frozen bait.', hours: '4 AM - 9 PM' },
-  { id: 'bs-5', bay: 'galveston', name: 'Texas City Dike Bait Stand', lat: 29.3850, lng: -94.9035, notes: 'Live shrimp, fiddler crabs, frozen bait.', hours: '5 AM - 7 PM' },
-  { id: 'bs-6', bay: 'galveston', name: 'Galveston Island Bait & Tackle', lat: 29.2750, lng: -94.8320, notes: 'Largest tackle selection on the island.', hours: '5 AM - 8 PM', phone: '(409) 765-5561' },
-  { id: 'bs-7', bay: 'galveston', name: 'West End Bait Camp', lat: 29.2015, lng: -94.9610, notes: 'Near state park. Live shrimp, Gulp, leader rigs.', hours: '5 AM - 7 PM' },
-  { id: 'bs-8', bay: 'galveston', name: 'Kemah Bait & Tackle', lat: 29.5420, lng: -95.0210, notes: 'Live bait, tackle, ice. Near Kemah ramp.', hours: '4:30 AM - 8 PM' },
-];
+// Add your own via Settings > Permanent Map Items
+export const BAIT_SHOPS = [];
 
 // ─── HARBORS / MARINAS ───
-export const MARINAS = [
-  { id: 'ma-1', bay: 'matagorda', name: 'Matagorda Harbor', lat: 28.694112, lng: -95.957777, notes: '189 CR 213, Matagorda TX 77457 — Main harbor with fuel dock, cleaning station, ice house', slips: 50 },
-  { id: 'ma-2', bay: 'matagorda', name: 'Matagorda Mooring Basin', lat: 28.6870, lng: -95.9680, notes: 'Covered slips, protected from SE winds', slips: 30 },
-  { id: 'ma-3', bay: 'galveston', name: 'Galveston Yacht Basin', lat: 29.2889, lng: -94.7912, notes: 'Full service marina, fuel, pump-out, cleaning', slips: 120 },
-  { id: 'ma-4', bay: 'galveston', name: 'Eagle Point Marina', lat: 29.4825, lng: -94.9190, notes: 'Protected marina, north shore', slips: 80 },
-  { id: 'ma-5', bay: 'galveston', name: 'Waterford Harbor Marina', lat: 29.5305, lng: -95.0350, notes: 'Clear Lake area, covered slips', slips: 200 },
-  { id: 'ma-6', bay: 'galveston', name: 'Kemah Boardwalk Marina', lat: 29.5435, lng: -95.0235, notes: 'Restaurants nearby, transient slips available', slips: 60 },
-];
+// Add your own via Settings > Permanent Map Items
+export const MARINAS = [];
 
 // ─── BAY AREA NAMES / LABELS ───
 // Geographic names embedded on the map like Google Maps
@@ -103,38 +62,27 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
   // Weather API gives direction wind comes FROM - flip 180 for blow direction
   const blowDir = (windDir + 180) % 360;
 
-  // Water-only GPS positions for each bay
+  // Water-only GPS positions — fewer, well-spaced across all bays
   const waterPositions = bayId === 'galveston' ? [
-    // Galveston Bay main body
-    { lat: 29.32, lng: -94.84 }, { lat: 29.35, lng: -94.80 }, { lat: 29.38, lng: -94.85 },
-    { lat: 29.30, lng: -94.88 }, { lat: 29.34, lng: -94.76 }, { lat: 29.40, lng: -94.78 },
-    { lat: 29.36, lng: -94.90 }, { lat: 29.42, lng: -94.72 }, { lat: 29.46, lng: -94.80 },
+    // Galveston Bay — spread evenly
+    { lat: 29.34, lng: -94.82 },   // central bay
+    { lat: 29.40, lng: -94.78 },   // upper bay
+    { lat: 29.30, lng: -94.88 },   // lower bay
     // West Bay
-    { lat: 29.20, lng: -94.95 }, { lat: 29.22, lng: -94.92 }, { lat: 29.18, lng: -94.98 },
-    { lat: 29.21, lng: -95.02 }, { lat: 29.19, lng: -94.88 },
+    { lat: 29.20, lng: -94.95 },   // west bay center
     // East Bay
-    { lat: 29.45, lng: -94.55 }, { lat: 29.47, lng: -94.60 }, { lat: 29.43, lng: -94.50 },
-    // Upper Bay / Trinity
-    { lat: 29.48, lng: -94.86 }, { lat: 29.50, lng: -94.76 }, { lat: 29.52, lng: -94.72 },
-    // Chocolate Bay area
-    { lat: 29.33, lng: -95.05 }, { lat: 29.31, lng: -95.08 },
+    { lat: 29.45, lng: -94.55 },   // east bay
+    // Trinity Bay
+    { lat: 29.50, lng: -94.76 },   // trinity
   ] : [
-    // East Matagorda Bay
-    { lat: 28.710, lng: -95.870 }, { lat: 28.715, lng: -95.850 }, { lat: 28.705, lng: -95.890 },
-    { lat: 28.718, lng: -95.840 }, { lat: 28.712, lng: -95.860 }, { lat: 28.700, lng: -95.910 },
-    // Central / ICW area
-    { lat: 28.705, lng: -95.920 }, { lat: 28.698, lng: -95.935 },
-    // Near river mouth / harbor area
-    { lat: 28.692, lng: -95.960 }, { lat: 28.695, lng: -95.950 },
-    // South bay / near fishing drains
-    { lat: 28.690, lng: -95.880 }, { lat: 28.695, lng: -95.900 },
-    // West Matagorda Bay
-    { lat: 28.720, lng: -96.050 }, { lat: 28.725, lng: -96.100 }, { lat: 28.730, lng: -96.150 },
-    { lat: 28.715, lng: -96.000 }, { lat: 28.722, lng: -96.200 }, { lat: 28.718, lng: -95.980 },
-    // Tres Palacios Bay
-    { lat: 28.735, lng: -96.180 }, { lat: 28.740, lng: -96.160 },
-    // Oyster Lake
-    { lat: 28.695, lng: -95.930 },
+    // East Matagorda Bay — well-spaced, water only
+    { lat: 28.710, lng: -95.870 },   // east bay center
+    { lat: 28.700, lng: -95.910 },   // east bay west side
+    { lat: 28.715, lng: -95.840 },   // east bay east side
+    // West Matagorda Bay — big open water
+    { lat: 28.720, lng: -96.000 },   // west bay east
+    { lat: 28.725, lng: -96.100 },   // west bay center
+    { lat: 28.720, lng: -96.200 },   // west bay west
   ];
 
   for (const pos of waterPositions) {
