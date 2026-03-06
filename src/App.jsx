@@ -36,6 +36,9 @@ export default function App() {
   const [spotFilter, setSpotFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAI, setShowAI] = useState(false);
+  const [aiResponse, setAiResponse] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showPhotoUp, setShowPhotoUp] = useState(false);
@@ -598,6 +601,60 @@ export default function App() {
   const openSpot = useCallback((s) => { setSelSpot(s); setShowRoute(false); setRouteStep(0); setMobilePanel('spot-detail'); }, []);
   const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); setEditingRoute(false); };
   const startNav = () => { setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav'); };
+
+  const fetchAIRecommendation = async () => {
+    if (!settings.claudeApiKey) return;
+    setAiLoading(true);
+    setAiError(null);
+    setAiResponse(null);
+    const bayName = selBay?.name || 'Matagorda Bay';
+    const spotsInfo = filtered.map(s => `${s.name} (${s.type}, species: ${(s.species || []).join(', ')})`).join('; ');
+    const prompt = `You are a Texas coastal fishing guide AI. Give a fishing recommendation for ${bayName} based on these current conditions:
+- Wind: ${weather.windSpeed} mph from ${weather.windDirLabel || 'unknown'}
+- Temperature: ${weather.temp}°F, feels like ${weather.feelsLike}°F
+- Tide: ${tide.status || 'unknown'}
+- Today's tides: ${(tide.todayTides || []).map(t => `${t.type} at ${t.time} (${t.height}ft)`).join(', ') || 'unknown'}
+- Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+
+Available spots: ${spotsInfo || 'No spots loaded'}
+
+Respond in this exact JSON format (no markdown, just raw JSON):
+{
+  "topPick": { "name": "spot name", "reason": "1-2 sentences why this is the best choice right now" },
+  "lureStrategy": "2-3 sentences on what lures/bait to use and why",
+  "avoid": "1-2 sentences on what to avoid today and why",
+  "tide_tip": "1 sentence on how to use today's tide movement"
+}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': settings.claudeApiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API error ${res.status}`);
+      }
+      const data = await res.json();
+      const text = data.content?.[0]?.text || '';
+      const parsed = JSON.parse(text);
+      setAiResponse(parsed);
+    } catch (e) {
+      setAiError(e.message || 'Failed to get recommendation');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleLocateMe = () => {
     if (!navigator.geolocation) { showT('Geolocation not supported on this device'); return; }
@@ -1504,11 +1561,23 @@ export default function App() {
         <Btn primary isMobile={isMobile} style={{ width: '100%' }} onClick={() => { showT('Settings saved'); setShowSettings(false); }}><SaveI s={14} c={C.bg} /> Save</Btn>
       </Modal>}
 
-      {showAI && <Modal title="AI Fishing Advisor" sub="Powered by Claude" onClose={() => setShowAI(false)} isMobile={isMobile}>{!settings.claudeApiKey ? <div style={{ textAlign: 'center', padding: '20px 0' }}><SparkI s={40} c={C.dim} /><h3 style={{ marginTop: 12 }}>API Key Required</h3><p style={{ fontSize: 13, color: C.mid, marginTop: 6, marginBottom: 16 }}>Add your Claude API key in Settings.</p><Btn primary isMobile={isMobile} onClick={() => { setShowAI(false); setShowSettings(true); }}><KeyI s={14} c={C.bg} /> Open Settings</Btn></div> :
-        <div><div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 14, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 11 }}><div><div style={{ color: C.dim }}>Wind</div><div style={{ fontWeight: 600 }}>{weather.windSpeed} mph {weather.windDirLabel}</div></div><div><div style={{ color: C.dim }}>Tide</div><div style={{ fontWeight: 600 }}>{tide.status}</div></div><div><div style={{ color: C.dim }}>Feels Like</div><div style={{ fontWeight: 600 }}>{weather.feelsLike}\u00B0F</div></div></div>
-        <div style={{ background: `${C.cyan}08`, border: `1px solid ${C.cyan}20`, borderRadius: 12, padding: 14, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.cyan, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFAF'} Top Pick Today</div><div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Shell Island Flats</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>SE wind pushes bait onto shell pads. Incoming tide floods grass edges \u2014 reds will feed aggressively.</p></div>
-        <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.teal, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFA3'} Lure Strategy</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>She Dog topwater at dawn. Bass Assassin 4&quot; on 1/8oz when wind picks up. Gold spoon for tailers.</p></div>
-        <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 10, padding: 12 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.amber, fontWeight: 700, marginBottom: 6 }}>{'\u26A0\uFE0F'} Avoid Today</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>Open bay flats \u2014 choppy at 12+ mph SE. Stick to protected shell areas.</p></div></div>}
+      {showAI && <Modal title="AI Fishing Advisor" sub="Powered by Claude Haiku" onClose={() => { setShowAI(false); setAiResponse(null); setAiError(null); }} isMobile={isMobile}>{!settings.claudeApiKey ? <div style={{ textAlign: 'center', padding: '20px 0' }}><SparkI s={40} c={C.dim} /><h3 style={{ marginTop: 12 }}>API Key Required</h3><p style={{ fontSize: 13, color: C.mid, marginTop: 6, marginBottom: 16 }}>Add your Claude API key in Settings to get AI-powered fishing recommendations.</p><Btn primary isMobile={isMobile} onClick={() => { setShowAI(false); setShowSettings(true); }}><KeyI s={14} c={C.bg} /> Open Settings</Btn></div> :
+        <div>
+          <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 14, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: 11 }}><div><div style={{ color: C.dim }}>Wind</div><div style={{ fontWeight: 600 }}>{weather.windSpeed} mph {weather.windDirLabel}</div></div><div><div style={{ color: C.dim }}>Tide</div><div style={{ fontWeight: 600 }}>{tide.status}</div></div><div><div style={{ color: C.dim }}>Feels Like</div><div style={{ fontWeight: 600 }}>{weather.feelsLike}{'\u00B0'}F</div></div></div>
+          {!aiResponse && !aiLoading && !aiError && <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <p style={{ fontSize: 13, color: C.mid, marginBottom: 16 }}>Get a personalized fishing recommendation based on current wind, tide, and conditions.</p>
+            <Btn primary isMobile={isMobile} onClick={fetchAIRecommendation}><SparkI s={14} c={C.bg} /> Get Recommendation</Btn>
+          </div>}
+          {aiLoading && <div style={{ textAlign: 'center', padding: '30px 0' }}><div style={{ fontSize: 13, color: C.mid }}>Analyzing conditions...</div><div style={{ marginTop: 10, fontSize: 20 }}>{'\u23F3'}</div></div>}
+          {aiError && <div style={{ textAlign: 'center', padding: '20px 0' }}><div style={{ fontSize: 13, color: C.red, marginBottom: 12 }}>{aiError}</div><Btn small isMobile={isMobile} onClick={fetchAIRecommendation}>Retry</Btn></div>}
+          {aiResponse && <>
+            <div style={{ background: `${C.cyan}08`, border: `1px solid ${C.cyan}20`, borderRadius: 12, padding: 14, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.cyan, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFAF'} Top Pick</div><div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{aiResponse.topPick?.name}</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{aiResponse.topPick?.reason}</p></div>
+            <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.teal, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFA3'} Lure Strategy</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.lureStrategy}</p></div>
+            <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.amber, fontWeight: 700, marginBottom: 6 }}>{'\u26A0\uFE0F'} Avoid Today</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.avoid}</p></div>
+            {aiResponse.tide_tip && <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}20`, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.blue, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDF0A'} Tide Tip</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.tide_tip}</p></div>}
+            <Btn small isMobile={isMobile} onClick={fetchAIRecommendation} style={{ width: '100%' }}><SparkI s={12} /> Refresh</Btn>
+          </>}
+        </div>}
       </Modal>}
 
       {showEditor && <Modal title="Map Editor Pro" sub="Add spots, launches, zones \u2014 saved to your device" onClose={() => { setShowEditor(false); }} wide isMobile={isMobile}>
