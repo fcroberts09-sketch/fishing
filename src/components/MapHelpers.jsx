@@ -1,8 +1,12 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { C } from '../utils/theme';
 import { sc, si, li } from '../utils/theme';
+
+// Global touch state shared across components
+let _isTouching = false;
+export function isTouching() { return _isTouching; }
 
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -15,10 +19,32 @@ L.Icon.Default.mergeOptions({
 export function FitBounds({ bounds }) {
   const map = useMap();
   useEffect(() => {
-    if (bounds && bounds.length >= 2) {
+    if (bounds && bounds.length >= 2 && !_isTouching) {
+      map.stop();
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
   }, [bounds, map]);
+  return null;
+}
+
+// Touch guard + scroll zoom rate + disable double-tap zoom
+export function MapStabilizer() {
+  const map = useMap();
+  useEffect(() => {
+    const canvas = map.getContainer();
+    const onTouchStart = () => { _isTouching = true; };
+    const onTouchEnd = () => { setTimeout(() => { _isTouching = false; }, 300); };
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+    map.doubleClickZoom.disable();
+    if (map.scrollWheelZoom) {
+      map.options.wheelPxPerZoomLevel = 120;
+    }
+    return () => {
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [map]);
   return null;
 }
 
@@ -81,7 +107,8 @@ export function MapClickHandler({ onRightClick, onLeftClick, editMode, isMobile 
 export function FlyToLocation({ position }) {
   const map = useMap();
   useEffect(() => {
-    if (position) {
+    if (position && !_isTouching) {
+      map.stop();
       map.flyTo([position.lat, position.lng], 14, { duration: 1.5 });
     }
   }, [position, map]);
@@ -89,17 +116,19 @@ export function FlyToLocation({ position }) {
 }
 
 // Icon factories - all sizes reduced for mobile clarity
+// Tap target is always at least 48px on mobile for accessibility
 export function spotIcon(type, selected, mobile) {
   const col = sc(type);
   const icon = si(type);
   const size = mobile ? (selected ? 28 : 22) : (selected ? 36 : 28);
   const br = mobile ? (selected ? 8 : 6) : (selected ? 10 : 8);
   const fs = mobile ? (selected ? 14 : 11) : (selected ? 18 : 14);
+  const tap = mobile ? Math.max(48, size) : size;
   return L.divIcon({
     className: '',
-    html: `<div style="width:${size}px;height:${size}px;border-radius:${br}px;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${fs}px;box-shadow:0 1px 6px #0006;cursor:pointer;transition:all 0.2s">${icon}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    html: `<div style="width:${tap}px;height:${tap}px;display:flex;align-items:center;justify-content:center;cursor:pointer"><div style="width:${size}px;height:${size}px;border-radius:${br}px;background:${col};border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:${fs}px;box-shadow:0 1px 6px #0006;transition:all 0.2s">${icon}</div></div>`,
+    iconSize: [tap, tap],
+    iconAnchor: [tap / 2, tap / 2],
   });
 }
 

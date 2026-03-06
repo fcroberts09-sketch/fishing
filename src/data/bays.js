@@ -67,23 +67,15 @@ export const DEFAULT_SAND_BARS = [];
 export const DEFAULT_SHELL_PADS = [];
 export const DEFAULT_PHOTOS = [];
 
-// Simple route generation: just start and destination
-// Users will edit/customize routes and save them permanently
+// Water-only route generation using channel graph + Dijkstra
+import { computeWaterRoute } from './channelGraph';
+
 export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName) {
+  const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName);
+  if (waterRoute && waterRoute.length >= 2) return waterRoute;
+  // Fallback: direct 2-point route if graph routing fails
   return [
-    {
-      lat: startLat, lng: startLng,
-      title: startName,
-      desc: 'Starting point',
-      depth: '',
-      warnings: [],
-    },
-    {
-      lat: targetLat, lng: targetLng,
-      title: spotName,
-      desc: 'Destination',
-      depth: '',
-      warnings: [],
-    },
+    { lat: startLat, lng: startLng, title: startName, desc: 'Starting point', depth: '', warnings: [] },
+    { lat: targetLat, lng: targetLng, title: spotName, desc: 'Destination', depth: '', warnings: [] },
   ];
 }

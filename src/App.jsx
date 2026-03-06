@@ -8,7 +8,7 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
-import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
+import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, MapStabilizer, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
 import { Btn, Lbl, Inp, Sel, Badge, Modal } from './components/UI';
@@ -57,7 +57,7 @@ export default function App() {
   const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth3', DEFAULT_DEPTH_MARKERS);
   const [sandBars, setSandBars] = useLocalStorage('tt_sandbars3', DEFAULT_SAND_BARS);
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads3', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers3', { wadeLines: false, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true });
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers4', { wadeLines: false, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes', {});
   const [editingRoute, setEditingRoute] = useState(false);
@@ -113,6 +113,92 @@ export default function App() {
   const [editPopup, setEditPopup] = useState(null);
   const [drawingLine, setDrawingLine] = useState(null);
   const dragJustEnded = useRef(false);
+
+  // ─── MOBILE WAYPOINT EDITING ───
+  const [waypointSheet, setWaypointSheet] = useState(null); // { type, id, data }
+  const [movingWaypoint, setMovingWaypoint] = useState(null); // { type, id, originalLat, originalLng }
+  const [pendingEdits, setPendingEdits] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
+
+  const handleWaypointLongPress = useCallback((type, id) => {
+    let data = null;
+    if (type === 'spot') data = allSpots.find((s) => s.id === id);
+    else if (type === 'launch') data = launches.find((l) => l.id === id);
+    if (data) {
+      setWaypointSheet({ type, id, data: { ...data } });
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+  }, [allSpots, launches]);
+
+  const handleWaypointMove = useCallback(() => {
+    if (!waypointSheet) return;
+    const { type, id, data } = waypointSheet;
+    setMovingWaypoint({ type, id, originalLat: data.lat, originalLng: data.lng });
+    setWaypointSheet(null);
+    setPendingEdits(true);
+    showT('Drag marker to new position');
+  }, [waypointSheet]);
+
+  const handleWaypointRename = useCallback(() => {
+    if (!waypointSheet || !renameInput.trim()) return;
+    const { type, id } = waypointSheet;
+    if (type === 'spot') {
+      setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, name: renameInput.trim() } : s));
+    } else if (type === 'launch') {
+      setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, name: renameInput.trim() } : l));
+    }
+    setPendingEdits(true);
+    setWaypointSheet(null);
+    setRenameInput('');
+    showT('Renamed!');
+  }, [waypointSheet, renameInput]);
+
+  const handleWaypointDelete = useCallback(() => {
+    if (!waypointSheet) return;
+    const { type, id, data } = waypointSheet;
+    setUndoStack((prev) => [...prev, { type, data }]);
+    if (type === 'spot') {
+      setAllSpots((prev) => prev.filter((s) => s.id !== id));
+      if (selSpot?.id === id) setSelSpot(null);
+    } else if (type === 'launch') {
+      setLaunches((prev) => prev.filter((l) => l.id !== id));
+    }
+    setWaypointSheet(null);
+    setPendingEdits(true);
+    showT('Deleted — tap Undo to restore');
+  }, [waypointSheet, selSpot]);
+
+  const handleWaypointNavigate = useCallback(() => {
+    if (!waypointSheet) return;
+    const { data } = waypointSheet;
+    // Open as selected spot for navigation
+    const spot = allSpots.find((s) => s.id === waypointSheet.id);
+    if (spot) {
+      openSpot(spot);
+      setWaypointSheet(null);
+    }
+  }, [waypointSheet, allSpots, openSpot]);
+
+  const handleSavePendingEdits = useCallback(() => {
+    setPendingEdits(false);
+    setMovingWaypoint(null);
+    showT('Changes saved');
+  }, []);
+
+  const handleCancelPendingEdits = useCallback(() => {
+    if (movingWaypoint) {
+      // Restore original position
+      const { type, id, originalLat, originalLng } = movingWaypoint;
+      if (type === 'spot') {
+        setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, lat: originalLat, lng: originalLng } : s));
+      } else if (type === 'launch') {
+        setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, lat: originalLat, lng: originalLng } : l));
+      }
+      setMovingWaypoint(null);
+    }
+    setPendingEdits(false);
+    showT('Changes cancelled');
+  }, [movingWaypoint]);
   const editPanelRef = useRef(null);
 
   // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
@@ -789,7 +875,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={handleLocateMe} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: geo.position ? `${C.blue}20` : C.card2, border: `1px solid ${geo.position ? C.blue : C.bdr}`, color: geo.position ? C.blue : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="My Location"><LocI s={13} /></button>
                     <button onClick={() => setShowLayerPanel(!showLayerPanel)} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: showLayerPanel ? `${C.cyan}20` : C.card2, border: `1px solid ${showLayerPanel ? C.cyan : C.bdr}`, color: showLayerPanel ? C.cyan : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Toggle Layers"><LayerI s={13} /></button>
-                    <button onClick={() => { setEditMode(!editMode); setCtxMenu(null); setEditPopup(null); }} style={{ padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}><EditI s={13} /> {editMode ? 'Done' : 'Edit'}</button>
+                    {editMode && undoStack.length > 0 && <button onClick={handleUndo} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: `${C.blue}20`, border: `1px solid ${C.blue}40`, color: C.blue, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Undo"><UndoI s={13} c={C.blue} /></button>}
+                    <button onClick={() => { setEditMode(!editMode); setCtxMenu(null); setEditPopup(null); setMovingWaypoint(null); setPendingEdits(false); }} style={{ padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}><EditI s={13} /> {editMode ? 'Done' : 'Edit'}</button>
                     {showRoute && <button onClick={() => { setShowRoute(false); setRouteStep(0); setPlaying(false); if (isMobile) setMobilePanel(null); }} style={{ fontSize: 11, color: C.mid, background: C.card2, border: `1px solid ${C.bdr}`, borderRadius: 5, padding: isMobile ? '6px 10px' : '4px 10px', cursor: 'pointer', fontFamily: Fnt }}>{'\u2190'} Map</button>}
                   </div>
                 </div>
@@ -797,6 +884,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                 {showLayerPanel && <div style={{ position: 'absolute', top: isMobile ? 90 : 48, right: isMobile ? 8 : 52, zIndex: 1100, background: C.card, border: `1px solid ${C.bdr2}`, borderRadius: 12, padding: '10px 14px', boxShadow: '0 8px 32px #000a', minWidth: 180 }} onClick={(e) => e.stopPropagation()}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Map Layers</div>
                   {[
+                    { key: 'noaaCharts', label: 'Charts', icon: '\uD83D\uDDFA\uFE0F', color: '#22d3ee' },
                     { key: 'areaLabels', label: 'Area Names', icon: '\uD83C\uDF0D', color: '#7dd3fc' },
                     { key: 'windArrows', label: 'Wind Direction', icon: '\uD83D\uDCA8', color: '#94a3b8' },
                     { key: 'kayakLaunches', label: 'Kayak Launches', icon: '\uD83D\uDEF6', color: C.teal },
@@ -836,6 +924,9 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                       </LayersControl.BaseLayer>
                     </LayersControl>
 
+                    {mapLayers.noaaCharts && <TileLayer url="https://tileservice.charts.noaa.gov/tiles/50000_1/{z}/{x}/{y}.png" maxZoom={18} opacity={0.55} attribution="NOAA" zIndex={10} />}
+
+                    <MapStabilizer />
                     {routeBounds && <FitBounds bounds={routeBounds} />}
                     {flyToUser && geo.position && <FlyToLocation position={geo.position} />}
                     <EditModeZoomControl editMode={editMode} />
@@ -971,7 +1062,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
                     {/* Route */}
                     {showRoute && routeCoords.length > 0 && <>
-                      <Polyline positions={routeCoords} pathOptions={{ color: C.cyan, weight: 3, dashArray: '8 6', opacity: 0.3 }} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#ffffff', weight: 5, opacity: 0.4 }} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 3, dashArray: '10 8', opacity: 0.8, className: 'route-dash-animate' }} />
                       {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 4, opacity: 0.9 }} />}
                       <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} draggable={editingRoute} eventHandlers={{ click: () => setRouteStep(0), dragend: editingRoute ? (e) => handleRouteWaypointDrag(0, e) : undefined }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />{editingRoute ? 'Drag to move' : 'Starting point'}</Tooltip></Marker>
                       {curRoute.slice(1).map((w, i) => {
@@ -988,10 +1080,12 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
                     {/* Spot markers */}
                     {mapLayers.spots && !showRoute && filtered.map((s) => (
-                      <Marker key={`s${s.id}`} position={itemToLatLng(s, bayConfig)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, dragend: (e) => handleMarkerDragEnd('spot', s.id, e) }}>
+                      <Marker key={`s${s.id}`} position={itemToLatLng(s, bayConfig)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode || (movingWaypoint?.type === 'spot' && movingWaypoint?.id === s.id)} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, contextmenu: (e) => { e.originalEvent.preventDefault(); handleWaypointLongPress('spot', s.id); }, dragend: (e) => { handleMarkerDragEnd('spot', s.id, e); if (movingWaypoint?.id === s.id) setPendingEdits(true); } }}>
                         <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
                     ))}
+                    {/* Ghost marker for moving waypoint */}
+                    {movingWaypoint && <Marker position={[movingWaypoint.originalLat, movingWaypoint.originalLng]} icon={spotIcon('wade', false, isMobile)} opacity={0.3} interactive={false} />}
 
                     {/* Wind direction arrows + wave heights */}
 
@@ -1655,6 +1749,31 @@ Respond in this exact JSON format (no markdown, just raw JSON):
         .leaflet-popup-content-wrapper { background:${C.card} !important; color:${C.txt} !important; border-radius:12px !important; border:1px solid ${C.bdr}; }
         .leaflet-popup-tip { background:${C.card} !important; }
       `}</style>
+
+      {/* WAYPOINT ACTION BOTTOM SHEET */}
+      {waypointSheet && <div style={{ position: 'fixed', inset: 0, background: '#000a', zIndex: 2000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }} onClick={() => setWaypointSheet(null)}>
+        <div style={{ background: C.card, borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 560, padding: '12px 16px 24px', boxShadow: '0 -4px 30px #000a' }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><div style={{ width: 40, height: 4, borderRadius: 2, background: C.bdr2 }} /></div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{waypointSheet.data.name}</div>
+          <div style={{ fontSize: 12, color: C.mid, marginBottom: 16 }}>{waypointSheet.data.lat?.toFixed(4)}, {waypointSheet.data.lng?.toFixed(4)}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button onClick={handleWaypointMove} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><MoveI s={20} c={C.cyan} /> Move</button>
+            <button onClick={() => { setRenameInput(waypointSheet.data.name); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><EditI s={20} c={C.amber} /> Rename</button>
+            {renameInput !== '' && <div style={{ display: 'flex', gap: 8, padding: '0 0 4px' }}>
+              <input value={renameInput} onChange={(e) => setRenameInput(e.target.value)} autoFocus style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 15, fontFamily: Fnt, outline: 'none' }} />
+              <button onClick={handleWaypointRename} style={{ padding: '10px 16px', borderRadius: 8, background: C.cyan, border: 'none', color: C.bg, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: Fnt }}>Save</button>
+            </div>}
+            <button onClick={handleWaypointDelete} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><TrashI s={20} c={C.red} /> Delete</button>
+            {waypointSheet.type === 'spot' && <button onClick={handleWaypointNavigate} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: `${C.teal}10`, border: `1px solid ${C.teal}30`, color: C.teal, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><NavI s={20} c={C.teal} /> Navigate Here</button>}
+          </div>
+        </div>
+      </div>}
+
+      {/* SAVE/CANCEL BAR for unsaved edits */}
+      {pendingEdits && <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1500, background: C.card, borderTop: `2px solid ${C.amber}`, padding: '12px 16px', display: 'flex', gap: 10, justifyContent: 'center', boxShadow: '0 -4px 20px #000a' }}>
+        <button onClick={handleCancelPendingEdits} style={{ flex: 1, padding: '14px 20px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.mid, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: Fnt }}>Cancel</button>
+        <button onClick={handleSavePendingEdits} style={{ flex: 1, padding: '14px 20px', borderRadius: 12, background: `linear-gradient(135deg,${C.cyan},${C.teal})`, border: 'none', color: C.bg, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: Fnt }}><SaveI s={16} c={C.bg} /> Save</button>
+      </div>}
     </div>
   );
 }

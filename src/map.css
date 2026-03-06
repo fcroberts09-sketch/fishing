@@ -69,6 +69,14 @@
   }
 }
 
+/* Animated dashed route line */
+@keyframes dash-flow {
+  to { stroke-dashoffset: -36; }
+}
+.route-dash-animate {
+  animation: dash-flow 1.2s linear infinite;
+}
+
 /* Pulse animation for user location */
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4), 0 2px 10px rgba(0,0,0,0.4); }
