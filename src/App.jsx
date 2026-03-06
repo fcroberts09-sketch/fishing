@@ -912,7 +912,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                 </div>}
 
                 <div style={{ height: isMobile && selSpot ? '100%' : isMobile ? 'calc(100vh - 140px)' : 500, position: 'relative', minHeight: isMobile ? 400 : 400 }}>
-                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={false} tapTolerance={15} touchZoom={true} maxZoom={20} minZoom={9} inertia={true} inertiaDeceleration={3000} inertiaMaxSpeed={1500} easeLinearity={0.25} bounceAtZoomLimits={false} wheelPxPerZoomLevel={120} zoomSnap={0.5} zoomDelta={0.5}>
+                  <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={false} tapTolerance={15} touchZoom={true} maxZoom={20} minZoom={9} inertia={true} inertiaDeceleration={3000} inertiaMaxSpeed={1500} easeLinearity={0.25} bounceAtZoomLimits={false} wheelPxPerZoomLevel={120} zoomSnap={0} zoomDelta={1}>
                     <LayersControl position="topright">
                       <LayersControl.BaseLayer checked name="HD Satellite">
                         <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={19} attribution="Esri" updateWhenZooming={false} updateWhenIdle={true} keepBuffer={4} />

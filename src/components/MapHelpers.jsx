@@ -4,9 +4,15 @@ import L from 'leaflet';
 import { C } from '../utils/theme';
 import { sc, si, li } from '../utils/theme';
 
-// Global touch state shared across components
+// Global touch/interaction state shared across components
 let _isTouching = false;
+let _lastUserInteraction = 0; // timestamp of last manual zoom/pan
 export function isTouching() { return _isTouching; }
+
+// Block programmatic camera moves for N ms after user interaction
+function userRecentlyInteracted() {
+  return Date.now() - _lastUserInteraction < 2000;
+}
 
 // Fix Leaflet default icon issue with bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,33 +22,74 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Deep-compare bounds arrays to avoid unnecessary fitBounds calls
+function boundsEqual(a, b) {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ai = a[i], bi = b[i];
+    const aLat = Array.isArray(ai) ? ai[0] : ai.lat;
+    const aLng = Array.isArray(ai) ? ai[1] : ai.lng;
+    const bLat = Array.isArray(bi) ? bi[0] : bi.lat;
+    const bLng = Array.isArray(bi) ? bi[1] : bi.lng;
+    if (aLat !== bLat || aLng !== bLng) return false;
+  }
+  return true;
+}
+
 export function FitBounds({ bounds }) {
   const map = useMap();
+  const lastBoundsRef = useRef(null);
+  const initialFitDone = useRef(false);
+
   useEffect(() => {
-    if (bounds && bounds.length >= 2 && !_isTouching) {
+    if (!bounds || bounds.length < 2) return;
+    if (_isTouching || userRecentlyInteracted()) return;
+
+    // Skip if bounds haven't actually changed (prevents re-fit on same data)
+    if (boundsEqual(bounds, lastBoundsRef.current) && initialFitDone.current) return;
+    lastBoundsRef.current = bounds;
+    initialFitDone.current = true;
+
+    // On mobile, disable animation to prevent glitchy zoom; also invalidateSize
+    // in case container recently resized (e.g., fullscreen toggle)
+    map.invalidateSize({ animate: false });
+    setTimeout(() => {
+      if (_isTouching || userRecentlyInteracted()) return;
       map.stop();
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    }
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: false });
+    }, 50);
   }, [bounds, map]);
   return null;
 }
 
-// Touch guard + scroll zoom rate + disable double-tap zoom
+// Touch guard + scroll zoom rate + disable double-tap zoom + user interaction tracking
 export function MapStabilizer() {
   const map = useMap();
   useEffect(() => {
     const canvas = map.getContainer();
-    const onTouchStart = () => { _isTouching = true; };
-    const onTouchEnd = () => { setTimeout(() => { _isTouching = false; }, 300); };
+    const onTouchStart = () => { _isTouching = true; _lastUserInteraction = Date.now(); };
+    const onTouchEnd = () => { _lastUserInteraction = Date.now(); setTimeout(() => { _isTouching = false; }, 600); };
     canvas.addEventListener('touchstart', onTouchStart, { passive: true });
     canvas.addEventListener('touchend', onTouchEnd, { passive: true });
+    canvas.addEventListener('touchcancel', onTouchEnd, { passive: true });
     map.doubleClickZoom.disable();
     if (map.scrollWheelZoom) {
       map.options.wheelPxPerZoomLevel = 120;
     }
+
+    // Track user-initiated zoom/pan to block programmatic camera moves
+    const onZoomStart = () => { _lastUserInteraction = Date.now(); };
+    const onMoveStart = () => { _lastUserInteraction = Date.now(); };
+    map.on('zoomstart', onZoomStart);
+    map.on('dragstart', onMoveStart);
+
     return () => {
       canvas.removeEventListener('touchstart', onTouchStart);
       canvas.removeEventListener('touchend', onTouchEnd);
+      canvas.removeEventListener('touchcancel', onTouchEnd);
+      map.off('zoomstart', onZoomStart);
+      map.off('dragstart', onMoveStart);
     };
   }, [map]);
   return null;
@@ -107,7 +154,7 @@ export function MapClickHandler({ onRightClick, onLeftClick, editMode, isMobile 
 export function FlyToLocation({ position }) {
   const map = useMap();
   useEffect(() => {
-    if (position && !_isTouching) {
+    if (position && !_isTouching && !userRecentlyInteracted()) {
       map.stop();
       map.flyTo([position.lat, position.lng], 14, { duration: 1.5 });
     }
