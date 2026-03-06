@@ -47,17 +47,17 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   // ─── PERSISTED STATE (localStorage) ───
-  const [allSpots, setAllSpots] = useLocalStorage('tt_spots3', DEFAULT_SPOTS);
-  const [launches, setLaunches] = useLocalStorage('tt_launches4', DEFAULT_LAUNCHES);
+  const [allSpots, setAllSpots] = useLocalStorage('tt_spots4', DEFAULT_SPOTS);
+  const [launches, setLaunches] = useLocalStorage('tt_launches5', DEFAULT_LAUNCHES);
   const [shadeZones, setShadeZones] = useLocalStorage('tt_zones3', DEFAULT_SHADE_ZONES);
-  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines3', DEFAULT_WADE_LINES);
+  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines4', DEFAULT_WADE_LINES);
   const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos3', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
   const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth3', DEFAULT_DEPTH_MARKERS);
   const [sandBars, setSandBars] = useLocalStorage('tt_sandbars3', DEFAULT_SAND_BARS);
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads3', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers4', { wadeLines: false, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers5', { wadeLines: true, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes', {});
   const [editingRoute, setEditingRoute] = useState(false);
@@ -380,7 +380,10 @@ export default function App() {
     else if (type === 'depth') data = depthMarkers.find((d) => d.id === id);
     else if (type === 'sandbar') data = sandBars.find((sb) => sb.id === id);
     else if (type === 'shellpad') data = shellPads.find((sp) => sp.id === id);
-    if (data) { setEditPopup({ type, id, data: { ...data } }); setCtxMenu(null); }
+    if (data) {
+      if (!data.userAdded) { showT('Built-in spot \u2014 cannot edit'); return; }
+      setEditPopup({ type, id, data: { ...data } }); setCtxMenu(null);
+    }
   }, [allSpots, launches, shadeZones, wadeLines, communityPhotos, depthMarkers, sandBars, shellPads]);
 
   const handleMapRightClick = (e) => {
@@ -1079,8 +1082,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
                     {/* Spot markers */}
                     {mapLayers.spots && !showRoute && filtered.map((s) => (
-                      <Marker key={`s${s.id}`} position={itemToLatLng(s, bayConfig)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={editMode || (movingWaypoint?.type === 'spot' && movingWaypoint?.id === s.id)} eventHandlers={{ click: () => { if (editMode) selectForEdit('spot', s.id); else openSpot(s); }, contextmenu: (e) => { e.originalEvent.preventDefault(); handleWaypointLongPress('spot', s.id); }, dragend: (e) => { handleMarkerDragEnd('spot', s.id, e); if (movingWaypoint?.id === s.id) setPendingEdits(true); } }}>
-                        <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}<br />{editMode ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
+                      <Marker key={`s${s.id}`} position={itemToLatLng(s, bayConfig)} icon={spotIcon(s.type, selSpot?.id === s.id, isMobile)} draggable={(editMode && s.userAdded) || (movingWaypoint?.type === 'spot' && movingWaypoint?.id === s.id)} eventHandlers={{ click: () => { if (editMode && s.userAdded) selectForEdit('spot', s.id); else openSpot(s); }, contextmenu: (e) => { e.originalEvent.preventDefault(); handleWaypointLongPress('spot', s.id); }, dragend: (e) => { handleMarkerDragEnd('spot', s.id, e); if (movingWaypoint?.id === s.id) setPendingEdits(true); } }}>
+                        <Tooltip><b>{s.name}</b>{favorites.includes(s.id) ? ' \u2764\uFE0F' : ''}{s.userAdded ? ' \u270F\uFE0F' : ''}<br />{editMode && s.userAdded ? 'Drag to move \u2022 Click to edit' : '\u2B50 ' + s.rating + ' \u2022 ' + s.species.slice(0, 2).join(', ')}</Tooltip>
                       </Marker>
                     ))}
                     {/* Ghost marker for moving waypoint */}
@@ -1756,13 +1759,16 @@ Respond in this exact JSON format (no markdown, just raw JSON):
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>{waypointSheet.data.name}</div>
           <div style={{ fontSize: 12, color: C.mid, marginBottom: 16 }}>{waypointSheet.data.lat?.toFixed(4)}, {waypointSheet.data.lng?.toFixed(4)}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={handleWaypointMove} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><MoveI s={20} c={C.cyan} /> Move</button>
-            <button onClick={() => { setRenameInput(waypointSheet.data.name); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><EditI s={20} c={C.amber} /> Rename</button>
-            {renameInput !== '' && <div style={{ display: 'flex', gap: 8, padding: '0 0 4px' }}>
-              <input value={renameInput} onChange={(e) => setRenameInput(e.target.value)} autoFocus style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 15, fontFamily: Fnt, outline: 'none' }} />
-              <button onClick={handleWaypointRename} style={{ padding: '10px 16px', borderRadius: 8, background: C.cyan, border: 'none', color: C.bg, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: Fnt }}>Save</button>
-            </div>}
-            <button onClick={handleWaypointDelete} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><TrashI s={20} c={C.red} /> Delete</button>
+            {waypointSheet.data.userAdded && <>
+              <button onClick={handleWaypointMove} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><MoveI s={20} c={C.cyan} /> Move</button>
+              <button onClick={() => { setRenameInput(waypointSheet.data.name); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><EditI s={20} c={C.amber} /> Rename</button>
+              {renameInput !== '' && <div style={{ display: 'flex', gap: 8, padding: '0 0 4px' }}>
+                <input value={renameInput} onChange={(e) => setRenameInput(e.target.value)} autoFocus style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: C.card2, border: `1px solid ${C.bdr}`, color: C.txt, fontSize: 15, fontFamily: Fnt, outline: 'none' }} />
+                <button onClick={handleWaypointRename} style={{ padding: '10px 16px', borderRadius: 8, background: C.cyan, border: 'none', color: C.bg, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: Fnt }}>Save</button>
+              </div>}
+              <button onClick={handleWaypointDelete} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: `${C.red}10`, border: `1px solid ${C.red}30`, color: C.red, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><TrashI s={20} c={C.red} /> Delete</button>
+            </>}
+            {!waypointSheet.data.userAdded && <div style={{ padding: '10px 0', fontSize: 13, color: C.dim, textAlign: 'center' }}>Built-in spot \u2014 view only</div>}
             {waypointSheet.type === 'spot' && <button onClick={handleWaypointNavigate} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 12, background: `${C.teal}10`, border: `1px solid ${C.teal}30`, color: C.teal, cursor: 'pointer', fontFamily: Fnt, fontSize: 15, fontWeight: 600 }}><NavI s={20} c={C.teal} /> Navigate Here</button>}
           </div>
         </div>
