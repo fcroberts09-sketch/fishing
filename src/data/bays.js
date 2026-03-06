@@ -1,4 +1,5 @@
 import { C } from '../utils/theme';
+import { computeWaterRoute } from './channelGraph';
 
 export const BAY_CONFIGS = {
   matagorda: {
@@ -68,8 +69,6 @@ export const DEFAULT_SHELL_PADS = [];
 export const DEFAULT_PHOTOS = [];
 
 // Water-only route generation using channel graph + Dijkstra
-import { computeWaterRoute } from './channelGraph';
-
 export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName) {
   const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName);
   if (waterRoute && waterRoute.length >= 2) return waterRoute;

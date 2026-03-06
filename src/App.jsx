@@ -120,85 +120,6 @@ export default function App() {
   const [pendingEdits, setPendingEdits] = useState(false);
   const [renameInput, setRenameInput] = useState('');
 
-  const handleWaypointLongPress = useCallback((type, id) => {
-    let data = null;
-    if (type === 'spot') data = allSpots.find((s) => s.id === id);
-    else if (type === 'launch') data = launches.find((l) => l.id === id);
-    if (data) {
-      setWaypointSheet({ type, id, data: { ...data } });
-      if (navigator.vibrate) navigator.vibrate(50);
-    }
-  }, [allSpots, launches]);
-
-  const handleWaypointMove = useCallback(() => {
-    if (!waypointSheet) return;
-    const { type, id, data } = waypointSheet;
-    setMovingWaypoint({ type, id, originalLat: data.lat, originalLng: data.lng });
-    setWaypointSheet(null);
-    setPendingEdits(true);
-    showT('Drag marker to new position');
-  }, [waypointSheet]);
-
-  const handleWaypointRename = useCallback(() => {
-    if (!waypointSheet || !renameInput.trim()) return;
-    const { type, id } = waypointSheet;
-    if (type === 'spot') {
-      setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, name: renameInput.trim() } : s));
-    } else if (type === 'launch') {
-      setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, name: renameInput.trim() } : l));
-    }
-    setPendingEdits(true);
-    setWaypointSheet(null);
-    setRenameInput('');
-    showT('Renamed!');
-  }, [waypointSheet, renameInput]);
-
-  const handleWaypointDelete = useCallback(() => {
-    if (!waypointSheet) return;
-    const { type, id, data } = waypointSheet;
-    setUndoStack((prev) => [...prev, { type, data }]);
-    if (type === 'spot') {
-      setAllSpots((prev) => prev.filter((s) => s.id !== id));
-      if (selSpot?.id === id) setSelSpot(null);
-    } else if (type === 'launch') {
-      setLaunches((prev) => prev.filter((l) => l.id !== id));
-    }
-    setWaypointSheet(null);
-    setPendingEdits(true);
-    showT('Deleted — tap Undo to restore');
-  }, [waypointSheet, selSpot]);
-
-  const handleWaypointNavigate = useCallback(() => {
-    if (!waypointSheet) return;
-    const { data } = waypointSheet;
-    // Open as selected spot for navigation
-    const spot = allSpots.find((s) => s.id === waypointSheet.id);
-    if (spot) {
-      openSpot(spot);
-      setWaypointSheet(null);
-    }
-  }, [waypointSheet, allSpots, openSpot]);
-
-  const handleSavePendingEdits = useCallback(() => {
-    setPendingEdits(false);
-    setMovingWaypoint(null);
-    showT('Changes saved');
-  }, []);
-
-  const handleCancelPendingEdits = useCallback(() => {
-    if (movingWaypoint) {
-      // Restore original position
-      const { type, id, originalLat, originalLng } = movingWaypoint;
-      if (type === 'spot') {
-        setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, lat: originalLat, lng: originalLng } : s));
-      } else if (type === 'launch') {
-        setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, lat: originalLat, lng: originalLng } : l));
-      }
-      setMovingWaypoint(null);
-    }
-    setPendingEdits(false);
-    showT('Changes cancelled');
-  }, [movingWaypoint]);
   const editPanelRef = useRef(null);
 
   // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
@@ -687,6 +608,84 @@ export default function App() {
   const openSpot = useCallback((s) => { setSelSpot(s); setShowRoute(false); setRouteStep(0); setMobilePanel('spot-detail'); }, []);
   const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); setEditingRoute(false); };
   const startNav = () => { setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav'); };
+
+  // ─── MOBILE WAYPOINT EDITING CALLBACKS ───
+  const handleWaypointLongPress = useCallback((type, id) => {
+    let data = null;
+    if (type === 'spot') data = allSpots.find((s) => s.id === id);
+    else if (type === 'launch') data = launches.find((l) => l.id === id);
+    if (data) {
+      setWaypointSheet({ type, id, data: { ...data } });
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+  }, [allSpots, launches]);
+
+  const handleWaypointMove = useCallback(() => {
+    if (!waypointSheet) return;
+    const { type, id, data } = waypointSheet;
+    setMovingWaypoint({ type, id, originalLat: data.lat, originalLng: data.lng });
+    setWaypointSheet(null);
+    setPendingEdits(true);
+    showT('Drag marker to new position');
+  }, [waypointSheet]);
+
+  const handleWaypointRename = useCallback(() => {
+    if (!waypointSheet || !renameInput.trim()) return;
+    const { type, id } = waypointSheet;
+    if (type === 'spot') {
+      setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, name: renameInput.trim() } : s));
+    } else if (type === 'launch') {
+      setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, name: renameInput.trim() } : l));
+    }
+    setPendingEdits(true);
+    setWaypointSheet(null);
+    setRenameInput('');
+    showT('Renamed!');
+  }, [waypointSheet, renameInput]);
+
+  const handleWaypointDelete = useCallback(() => {
+    if (!waypointSheet) return;
+    const { type, id, data } = waypointSheet;
+    setUndoStack((prev) => [...prev, { type, data }]);
+    if (type === 'spot') {
+      setAllSpots((prev) => prev.filter((s) => s.id !== id));
+      if (selSpot?.id === id) setSelSpot(null);
+    } else if (type === 'launch') {
+      setLaunches((prev) => prev.filter((l) => l.id !== id));
+    }
+    setWaypointSheet(null);
+    setPendingEdits(true);
+    showT('Deleted — tap Undo to restore');
+  }, [waypointSheet, selSpot]);
+
+  const handleWaypointNavigate = useCallback(() => {
+    if (!waypointSheet) return;
+    const spot = allSpots.find((s) => s.id === waypointSheet.id);
+    if (spot) {
+      openSpot(spot);
+      setWaypointSheet(null);
+    }
+  }, [waypointSheet, allSpots, openSpot]);
+
+  const handleSavePendingEdits = useCallback(() => {
+    setPendingEdits(false);
+    setMovingWaypoint(null);
+    showT('Changes saved');
+  }, []);
+
+  const handleCancelPendingEdits = useCallback(() => {
+    if (movingWaypoint) {
+      const { type, id, originalLat, originalLng } = movingWaypoint;
+      if (type === 'spot') {
+        setAllSpots((prev) => prev.map((s) => s.id === id ? { ...s, lat: originalLat, lng: originalLng } : s));
+      } else if (type === 'launch') {
+        setLaunches((prev) => prev.map((l) => l.id === id ? { ...l, lat: originalLat, lng: originalLng } : l));
+      }
+      setMovingWaypoint(null);
+    }
+    setPendingEdits(false);
+    showT('Changes cancelled');
+  }, [movingWaypoint]);
 
   const fetchAIRecommendation = async () => {
     if (!settings.claudeApiKey) return;
