@@ -357,9 +357,10 @@ export default function App() {
 
   const routeBounds = useMemo(() => {
     if (showRoute && routeCoords.length >= 2) return routeCoords;
+    if (selSpot) return null; // Don't re-fit when viewing a single spot
     if (filtered.length >= 2) return filtered.map((s) => itemToLatLng(s, bayConfig));
     return null;
-  }, [showRoute, routeCoords, filtered, bayConfig]);
+  }, [showRoute, routeCoords, filtered, bayConfig, selSpot]);
 
   useEffect(() => {
     if (playing && curRoute.length) {
@@ -871,15 +872,16 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
             <div style={{ display: isMobile ? 'flex' : 'grid', flexDirection: 'column', gridTemplateColumns: isMobile ? '1fr' : '1fr 360px', gap: isMobile ? 0 : 14 }}>
               {/* SATELLITE MAP */}
-              <div style={{ background: C.card, borderRadius: isMobile ? 0 : 14, border: editMode ? '2px solid ' + C.amber : isMobile ? 'none' : '1px solid ' + C.bdr, overflow: 'hidden', position: 'relative' }}>
-                <div style={{ padding: isMobile ? '4px 8px' : '10px 14px', borderBottom: `1px solid ${C.bdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ background: C.card, borderRadius: isMobile && selSpot ? 0 : isMobile ? 0 : 14, border: editMode ? '2px solid ' + C.amber : isMobile ? 'none' : '1px solid ' + C.bdr, overflow: 'hidden', position: isMobile && selSpot ? 'fixed' : 'relative', ...(isMobile && selSpot ? { inset: 0, zIndex: 30 } : {}) }}>
+                <div style={{ padding: isMobile ? '4px 8px' : '10px 14px', borderBottom: isMobile && selSpot ? 'none' : `1px solid ${C.bdr}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', ...(isMobile && selSpot ? { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1100, background: `${C.bg}cc`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' } : {}) }}>
                   <div style={{ flex: 1, minWidth: 0 }}>{!isMobile && <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showRoute ? 'Route \u2192 ' + selSpot?.name : editMode ? 'Edit Mode' : 'Satellite Map'}</div>}{!isMobile && <div style={{ fontSize: 11, color: editMode ? C.amber : C.dim }}>{editMode ? 'Right-click: add marker \u2022 Click: edit \u2022 Drag: move' : 'HD Satellite / Google / USGS'}</div>}</div>
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button onClick={handleLocateMe} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: geo.position ? `${C.blue}20` : C.card2, border: `1px solid ${geo.position ? C.blue : C.bdr}`, color: geo.position ? C.blue : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="My Location"><LocI s={13} /></button>
                     <button onClick={() => setShowLayerPanel(!showLayerPanel)} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: showLayerPanel ? `${C.cyan}20` : C.card2, border: `1px solid ${showLayerPanel ? C.cyan : C.bdr}`, color: showLayerPanel ? C.cyan : C.mid, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Toggle Layers"><LayerI s={13} /></button>
                     {editMode && undoStack.length > 0 && <button onClick={handleUndo} style={{ padding: isMobile ? '6px 10px' : '5px 10px', borderRadius: 6, fontSize: 11, background: `${C.blue}20`, border: `1px solid ${C.blue}40`, color: C.blue, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }} title="Undo"><UndoI s={13} c={C.blue} /></button>}
-                    <button onClick={() => { setEditMode(!editMode); setCtxMenu(null); setEditPopup(null); setMovingWaypoint(null); setPendingEdits(false); }} style={{ padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}><EditI s={13} /> {editMode ? 'Done' : 'Edit'}</button>
+                    {!(isMobile && selSpot && !editMode) && <button onClick={() => { setEditMode(!editMode); setCtxMenu(null); setEditPopup(null); setMovingWaypoint(null); setPendingEdits(false); }} style={{ padding: isMobile ? '6px 10px' : '5px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: editMode ? C.amber : C.card2, color: editMode ? C.bg : C.mid, border: `1px solid ${editMode ? C.amber : C.bdr}`, cursor: 'pointer', fontFamily: Fnt, display: 'flex', alignItems: 'center', gap: 4 }}><EditI s={13} /> {editMode ? 'Done' : 'Edit'}</button>}
                     {showRoute && <button onClick={() => { setShowRoute(false); setRouteStep(0); setPlaying(false); if (isMobile) setMobilePanel(null); }} style={{ fontSize: 11, color: C.mid, background: C.card2, border: `1px solid ${C.bdr}`, borderRadius: 5, padding: isMobile ? '6px 10px' : '4px 10px', cursor: 'pointer', fontFamily: Fnt }}>{'\u2190'} Map</button>}
+                    {isMobile && selSpot && <button onClick={() => { setSelSpot(null); setShowRoute(false); setRouteStep(0); setPlaying(false); setMobilePanel(null); setEditingRoute(false); }} style={{ width: 36, height: 36, borderRadius: 18, background: `${C.bg}dd`, border: `1px solid ${C.bdr}`, color: C.txt, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: Fnt, backdropFilter: 'blur(4px)' }}><XI s={16} /></button>}
                   </div>
                 </div>
 
@@ -909,7 +911,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                   ))}
                 </div>}
 
-                <div style={{ height: isMobile ? 'calc(100vh - 140px)' : 500, position: 'relative', minHeight: isMobile ? 400 : 400 }}>
+                <div style={{ height: isMobile && selSpot ? '100%' : isMobile ? 'calc(100vh - 140px)' : 500, position: 'relative', minHeight: isMobile ? 400 : 400 }}>
                   <MapContainer center={bayConfig.center} zoom={bayConfig.zoom} style={{ height: '100%', width: '100%' }} zoomControl={!isMobile} key={selBay.id} tap={false} tapTolerance={15} touchZoom={true} maxZoom={20} minZoom={9} inertia={true} inertiaDeceleration={3000} inertiaMaxSpeed={1500} easeLinearity={0.25} bounceAtZoomLimits={false} wheelPxPerZoomLevel={120} zoomSnap={0.5} zoomDelta={0.5}>
                     <LayersControl position="topright">
                       <LayersControl.BaseLayer checked name="HD Satellite">
@@ -1310,7 +1312,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               </div>
 
               {/* RIGHT PANEL */}
-              {(!isMobile || selSpot || mobilePanel === 'spots') && <div style={isMobile ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, background: C.card, borderTop: `2px solid ${C.bdr2}`, borderRadius: '16px 16px 0 0', maxHeight: mobilePanel === 'spot-detail' || mobilePanel === 'nav' ? '70vh' : '55vh', overflow: 'auto', transition: 'max-height 0.3s ease', boxShadow: '0 -4px 30px #000a', WebkitOverflowScrolling: 'touch' } : { display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(!isMobile || selSpot || mobilePanel === 'spots') && <div style={isMobile ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, background: C.card, borderTop: `2px solid ${C.bdr2}`, borderRadius: '16px 16px 0 0', maxHeight: mobilePanel === 'spot-detail' || mobilePanel === 'nav' ? '55vh' : '55vh', overflow: 'auto', transition: 'max-height 0.3s ease', boxShadow: '0 -4px 30px #000a', WebkitOverflowScrolling: 'touch' } : { display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {isMobile && <div onClick={() => { if (!selSpot) setMobilePanel(null); }} style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px', position: 'sticky', top: 0, background: C.card, zIndex: 1, borderRadius: '16px 16px 0 0', cursor: 'pointer' }}><div style={{ width: 40, height: 4, borderRadius: 2, background: C.bdr2 }} /></div>}
                 {selSpot ? <>
                   <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.bdr}`, overflow: 'hidden' }}>

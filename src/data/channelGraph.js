@@ -12,17 +12,19 @@ import { haversineNM } from '../utils/geo';
 const HARBOR = { lat: 28.694112, lng: -95.957777, name: 'Matagorda Harbor' };
 
 // Route to East Matagorda Bay (wl-12 from GPX)
+// All East Bay destinations must route through the entrance (index 5)
 const EAST_BAY_ROUTE = [
-  { lat: 28.693098, lng: -95.956347 },
-  { lat: 28.691257, lng: -95.954186 },
-  { lat: 28.701561, lng: -95.93255 },
-  { lat: 28.709718, lng: -95.912993 },
-  { lat: 28.716362, lng: -95.88851 },
-  { lat: 28.71711, lng: -95.886648 },
-  { lat: 28.712395, lng: -95.886679 },
-  { lat: 28.707911, lng: -95.884541 },
-  { lat: 28.6861, lng: -95.879623 },
+  { lat: 28.693098, lng: -95.956347 },   // 0: channel exit
+  { lat: 28.691257, lng: -95.954186 },   // 1
+  { lat: 28.701561, lng: -95.93255 },    // 2: heading NE
+  { lat: 28.709718, lng: -95.912993 },   // 3
+  { lat: 28.716362, lng: -95.88851 },    // 4: approaching entrance
+  { lat: 28.715285, lng: -95.886751 },   // 5: EAST BAY ENTRANCE (GPS marker)
+  { lat: 28.712395, lng: -95.886679 },   // 6: inside East Bay
+  { lat: 28.707911, lng: -95.884541 },   // 7
+  { lat: 28.6861, lng: -95.879623 },     // 8: deep East Bay
 ];
+const EAST_BAY_ENTRANCE_IDX = 5;
 
 // Route to West Matagorda Bay via ICW (wl-13 from GPX)
 const WEST_BAY_ICW_ROUTE = [
@@ -95,6 +97,30 @@ const SOUTH_BAY_ROUTE = [
   { lat: 28.646207, lng: -95.922664 },  // Deep Scatter Shell area
   { lat: 28.634135, lng: -95.925605 },  // Fishing Drains area
 ];
+
+// ─── BAY BOUNDARIES ───
+// Used to determine which bay a destination is in for route enforcement.
+
+// East Matagorda Bay — separated from main bay, accessed through narrow entrance
+const EAST_BAY_BOUNDS = {
+  west: -95.890,   // entrance longitude
+  east: -95.780,
+  north: 28.760,
+  south: 28.580,
+};
+
+// West Matagorda Bay — accessed via ICW or Matagorda Island Cut
+const WEST_BAY_BOUNDS = {
+  west: -96.400,
+  east: -95.935,
+  north: 28.700,
+  south: 28.420,
+};
+
+function isInEastBay(lat, lng) {
+  return lng > EAST_BAY_BOUNDS.west && lng < EAST_BAY_BOUNDS.east &&
+         lat > EAST_BAY_BOUNDS.south && lat < EAST_BAY_BOUNDS.north;
+}
 
 // ─── LAND AVOIDANCE ───
 // Simplified land polygons for major marsh/land areas in Matagorda Bay.
@@ -225,8 +251,19 @@ function findClosestPointOnRoute(route, destLat, destLng) {
 }
 
 // Pick the best anchor route and peel-off point for a destination.
+// Enforces: East Bay destinations must go through the East Bay Entrance.
 // Prefers peel-offs that don't cross land. Among land-free options, picks shortest.
 function pickRoute(destLat, destLng) {
+  // East Bay destinations MUST use the East Bay route through the entrance
+  if (isInEastBay(destLat, destLng)) {
+    const { index } = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
+    const enforced = Math.max(index, EAST_BAY_ENTRANCE_IDX);
+    const pt = EAST_BAY_ROUTE[enforced];
+    const dist = haversineNM(pt.lat, pt.lng, destLat, destLng);
+    const crossesLand = segmentCrossesLand(pt, { lat: destLat, lng: destLng });
+    return { route: EAST_BAY_ROUTE, name: 'East Bay', index: enforced, dist, crossesLand };
+  }
+
   const routes = [
     { route: EAST_BAY_ROUTE, name: 'East Bay' },
     { route: WEST_BAY_ICW_ROUTE, name: 'West Bay ICW' },
