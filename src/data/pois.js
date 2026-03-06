@@ -20,7 +20,7 @@ export const KAYAK_LAUNCHES = [
 // ─── BOAT RAMPS ───
 export const BOAT_RAMPS = [
   // MATAGORDA
-  { id: 'br-1', bay: 'matagorda', name: 'Matagorda Harbor Ramp', type: 'boat', lat: 28.6847, lng: -95.9654, notes: '6 lane ramp, fuel, bait, ice', amenities: ['fuel', 'bait', 'ice', 'restrooms', 'parking'], fee: 'Free' },
+  { id: 'br-1', bay: 'matagorda', name: 'Matagorda Harbor Ramp', type: 'boat', lat: 28.694112, lng: -95.957777, notes: '189 CR 213 — 6 lane ramp, fuel, bait, ice', amenities: ['fuel', 'bait', 'ice', 'restrooms', 'parking'], fee: 'Free' },
   { id: 'br-2', bay: 'matagorda', name: 'River Bend Park Ramp', type: 'boat', lat: 28.6910, lng: -95.9690, notes: '2 lane ramp on Colorado River', amenities: ['parking', 'restrooms'], fee: 'Free' },
   { id: 'br-3', bay: 'matagorda', name: 'Chinquapin Boat Ramp', type: 'boat', lat: 28.7245, lng: -95.8520, notes: 'East Matagorda access, concrete ramp', amenities: ['parking'], fee: 'Free' },
   // GALVESTON
@@ -47,7 +47,7 @@ export const BAIT_SHOPS = [
 
 // ─── HARBORS / MARINAS ───
 export const MARINAS = [
-  { id: 'ma-1', bay: 'matagorda', name: 'Matagorda Harbor', lat: 28.6847, lng: -95.9654, notes: 'Main harbor with fuel dock, cleaning station, ice house', slips: 50 },
+  { id: 'ma-1', bay: 'matagorda', name: 'Matagorda Harbor', lat: 28.694112, lng: -95.957777, notes: '189 CR 213, Matagorda TX 77457 — Main harbor with fuel dock, cleaning station, ice house', slips: 50 },
   { id: 'ma-2', bay: 'matagorda', name: 'Matagorda Mooring Basin', lat: 28.6870, lng: -95.9680, notes: 'Covered slips, protected from SE winds', slips: 30 },
   { id: 'ma-3', bay: 'galveston', name: 'Galveston Yacht Basin', lat: 29.2889, lng: -94.7912, notes: 'Full service marina, fuel, pump-out, cleaning', slips: 120 },
   { id: 'ma-4', bay: 'galveston', name: 'Eagle Point Marina', lat: 29.4825, lng: -94.9190, notes: 'Protected marina, north shore', slips: 80 },
@@ -111,18 +111,30 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
     { lat: 29.36, lng: -94.90 }, { lat: 29.42, lng: -94.72 }, { lat: 29.46, lng: -94.80 },
     // West Bay
     { lat: 29.20, lng: -94.95 }, { lat: 29.22, lng: -94.92 }, { lat: 29.18, lng: -94.98 },
+    { lat: 29.21, lng: -95.02 }, { lat: 29.19, lng: -94.88 },
+    // East Bay
+    { lat: 29.45, lng: -94.55 }, { lat: 29.47, lng: -94.60 }, { lat: 29.43, lng: -94.50 },
     // Upper Bay / Trinity
-    { lat: 29.48, lng: -94.86 }, { lat: 29.50, lng: -94.76 },
+    { lat: 29.48, lng: -94.86 }, { lat: 29.50, lng: -94.76 }, { lat: 29.52, lng: -94.72 },
+    // Chocolate Bay area
+    { lat: 29.33, lng: -95.05 }, { lat: 29.31, lng: -95.08 },
   ] : [
     // East Matagorda Bay
     { lat: 28.710, lng: -95.870 }, { lat: 28.715, lng: -95.850 }, { lat: 28.705, lng: -95.890 },
     { lat: 28.718, lng: -95.840 }, { lat: 28.712, lng: -95.860 }, { lat: 28.700, lng: -95.910 },
     // Central / ICW area
     { lat: 28.705, lng: -95.920 }, { lat: 28.698, lng: -95.935 },
-    // Near river mouth
+    // Near river mouth / harbor area
     { lat: 28.692, lng: -95.960 }, { lat: 28.695, lng: -95.950 },
-    // South bay
+    // South bay / near fishing drains
     { lat: 28.690, lng: -95.880 }, { lat: 28.695, lng: -95.900 },
+    // West Matagorda Bay
+    { lat: 28.720, lng: -96.050 }, { lat: 28.725, lng: -96.100 }, { lat: 28.730, lng: -96.150 },
+    { lat: 28.715, lng: -96.000 }, { lat: 28.722, lng: -96.200 }, { lat: 28.718, lng: -95.980 },
+    // Tres Palacios Bay
+    { lat: 28.735, lng: -96.180 }, { lat: 28.740, lng: -96.160 },
+    // Oyster Lake
+    { lat: 28.695, lng: -95.930 },
   ];
 
   for (const pos of waterPositions) {

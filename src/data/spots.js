@@ -27,7 +27,7 @@ export const DEFAULT_SPOTS = [
     species: [],
     bestTide: 'Any', bestTime: 'Any', bestSeason: 'Year-round', bestWind: 'Any',
     lures: [],
-    desc: 'Boat parking / launch point.',
+    desc: 'Anchor/park your boat here before wading out to fish. Not a harbor — this is where fishermen leave their boat and wade to nearby spots.',
     media: [],
   },
 ];

@@ -185,12 +185,12 @@ export default function App() {
     if (routeKey && savedRoutes[routeKey]) {
       return computeRouteStats(savedRoutes[routeKey]);
     }
-    // Default: simple 2-point route from Park Boat to destination
+    // Default: simple 2-point route from Matagorda Harbor to destination
     const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
-    const parkBoat = launches.find((l) => l.name === 'Park Boat');
-    const startLat = parkBoat?.lat || sLat;
-    const startLng = parkBoat?.lng || sLng;
-    const startName = parkBoat?.name || 'Start';
+    const harbor = launches.find((l) => l.name === 'Matagorda Harbor') || launches.find((l) => l.bay === selBay?.id);
+    const startLat = harbor?.lat || sLat;
+    const startLng = harbor?.lng || sLng;
+    const startName = harbor?.name || 'Start';
     const route = generateRoute(startLat, startLng, startName, sLat, sLng, selSpot.name);
     return computeRouteStats(route);
   }, [selSpot, selBay, bayConfig, routeKey, savedRoutes, launches, computeRouteStats]);
@@ -599,13 +599,24 @@ export default function App() {
 
   const handleLocateMe = () => {
     if (!navigator.geolocation) { showT('Geolocation not supported on this device'); return; }
+    // Check HTTPS requirement
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      showT('Location requires HTTPS. Please use https:// URL.');
+      return;
+    }
     geo.requestLocation();
     setFlyToUser(true);
-    showT(geo.error ? 'Retrying location...' : 'Getting your location...');
-    // Check for result after a delay
-    setTimeout(() => {
-      if (!geo.position && geo.error) showT('Location error: ' + geo.error);
-    }, 12000);
+    showT('Getting your location...');
+    // Check for result after delays
+    const checkResult = (delay) => {
+      setTimeout(() => {
+        if (geo.position) return; // success
+        if (geo.error) showT(geo.error);
+        else if (delay < 15000) showT('Still trying... make sure Location Services is enabled.');
+      }, delay);
+    };
+    checkResult(5000);
+    checkResult(15000);
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -1149,8 +1160,8 @@ export default function App() {
               </div>
 
               {/* RIGHT PANEL */}
-              <div style={isMobile ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, background: C.card, borderTop: `2px solid ${C.bdr2}`, borderRadius: '16px 16px 0 0', maxHeight: mobilePanel === 'spot-detail' || mobilePanel === 'nav' ? '70vh' : '50vh', overflow: 'auto', transition: 'max-height 0.3s ease', boxShadow: '0 -4px 30px #000a', WebkitOverflowScrolling: 'touch' } : { display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {isMobile && <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px', position: 'sticky', top: 0, background: C.card, zIndex: 1, borderRadius: '16px 16px 0 0' }}><div style={{ width: 40, height: 4, borderRadius: 2, background: C.bdr2 }} /></div>}
+              {(!isMobile || selSpot || mobilePanel === 'spots') && <div style={isMobile ? { position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 40, background: C.card, borderTop: `2px solid ${C.bdr2}`, borderRadius: '16px 16px 0 0', maxHeight: mobilePanel === 'spot-detail' || mobilePanel === 'nav' ? '70vh' : '55vh', overflow: 'auto', transition: 'max-height 0.3s ease', boxShadow: '0 -4px 30px #000a', WebkitOverflowScrolling: 'touch' } : { display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {isMobile && <div onClick={() => { if (!selSpot) setMobilePanel(null); }} style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px', position: 'sticky', top: 0, background: C.card, zIndex: 1, borderRadius: '16px 16px 0 0', cursor: 'pointer' }}><div style={{ width: 40, height: 4, borderRadius: 2, background: C.bdr2 }} /></div>}
                 {selSpot ? <>
                   <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.bdr}`, overflow: 'hidden' }}>
                     <div style={{ padding: 14, borderBottom: `1px solid ${C.bdr}`, background: `${sc(selSpot.type)}08` }}>
@@ -1274,7 +1285,7 @@ export default function App() {
                     {bayLaunches.map((l) => <div key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, background: C.card2, borderRadius: 8, marginBottom: 4, border: `1px solid ${C.bdr}` }}><span style={{ fontSize: 18 }}>{li(l.type)}</span><div><div style={{ fontSize: 12, fontWeight: 600 }}>{l.name}</div><div style={{ fontSize: 10, color: C.dim }}>{l.notes}</div></div></div>)}
                   </div>
                 </>}
-              </div>
+              </div>}
             </div>
           </div>
         )}

@@ -57,7 +57,8 @@ export const BAY_DATA = {
 export const DEFAULT_SHADE_ZONES = [];
 
 export const DEFAULT_LAUNCHES = [
-  { id: 7, name: 'Park Boat', type: 'boat', lat: 28.63887, lng: -95.903967, notes: 'Boat parking / launch point', bay: 'matagorda' },
+  { id: 7, name: 'Park Boat', type: 'boat', lat: 28.63887, lng: -95.903967, notes: 'Anchor/park boat here before wading to fishing spots', bay: 'matagorda' },
+  { id: 8, name: 'Matagorda Harbor', type: 'boat', lat: 28.694112, lng: -95.957777, notes: '189 CR 213, Matagorda TX 77457 — Main harbor with fuel, bait, ice, boat ramp', bay: 'matagorda' },
 ];
 
 export const DEFAULT_WADE_LINES = [];

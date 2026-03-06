@@ -253,19 +253,23 @@ export function currentArrowIcon(dir, speed, tideState) {
 }
 
 export function windArrowIcon(dir, speed) {
-  const opacity = Math.min(0.45, 0.1 + (speed / 30) * 0.35);
-  const size = Math.min(14, 8 + (speed / 30) * 6);
-  const color = speed > 20 ? '#ef4444' : speed > 15 ? '#f59e0b' : speed > 10 ? '#06b6d4' : '#94a3b8';
+  const opacity = Math.min(0.85, 0.35 + (speed / 25) * 0.5);
+  const size = Math.min(32, 18 + (speed / 25) * 14);
+  const color = speed > 20 ? '#ef4444' : speed > 15 ? '#f59e0b' : speed > 10 ? '#06b6d4' : '#7dd3fc';
+  const labelSize = Math.max(8, Math.min(10, speed > 10 ? 10 : 9));
   return L.divIcon({
     className: '',
-    html: `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:${opacity};transform:rotate(${dir}deg)">
-      <svg width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round">
-        <line x1="8" y1="14" x2="8" y2="3"/>
-        <polyline points="4,7 8,3 12,7"/>
-      </svg>
+    html: `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;opacity:${opacity}">
+      <div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;transform:rotate(${dir}deg)">
+        <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}40" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="20" x2="12" y2="5"/>
+          <polyline points="6,10 12,4 18,10"/>
+        </svg>
+      </div>
+      <div style="font-size:${labelSize}px;font-weight:700;color:${color};text-shadow:0 1px 3px #000,0 0 6px #000;margin-top:-2px;white-space:nowrap">${Math.round(speed)}</div>
     </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [size, size + 14],
+    iconAnchor: [size / 2, (size + 14) / 2],
   });
 }
 
