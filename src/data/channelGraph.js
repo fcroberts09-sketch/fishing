@@ -1,299 +1,192 @@
-// Channel graph for water-only routing in Matagorda Bay Complex
-// All nodes are in navigable water, verified against NOAA charts and satellite imagery
+// Navigation routing engine for Matagorda Bay
+// Uses real GPX boat routes as anchor paths — all navigation follows these channels
+// then peels off at the nearest point to reach the destination.
 
 import { haversineNM } from '../utils/geo';
 
-// ─── GRAPH NODES ───
-// Each node is a navigable water waypoint [lng, lat]
-const NODES = {
-  // Harbors & Ramps
-  'palacios_harbor':          [-96.2133, 28.7068],
-  'matagorda_harbor':         [-95.9578, 28.6941],
-  'sargent_ramp':             [-95.6261, 28.7711],
+// ─── ANCHOR ROUTES ───
+// These are your actual GPS tracks from Matagorda Harbor.
+// Every navigation route follows one of these, then peels off to the destination.
 
-  // GIWW (Gulf Intracoastal Waterway) spine — main routing channel
-  'giww_west_junction':       [-96.2050, 28.6690],
-  'giww_tres_palacios':       [-96.1500, 28.6900],
-  'giww_mid_west':            [-96.1000, 28.6850],
-  'giww_colorado_crossing':   [-95.9800, 28.6800],
-  'giww_east_junction':       [-95.9200, 28.6750],
-  'giww_caney_creek':         [-95.8700, 28.6800],
-  'giww_east_end':            [-95.8200, 28.6700],
-  'giww_sargent_approach':    [-95.7200, 28.7200],
+const HARBOR = { lat: 28.694112, lng: -95.957777, name: 'Matagorda Harbor' };
 
-  // Matagorda Ship Channel
-  'ship_channel_mouth':       [-95.9783, 28.5847],
-  'ship_channel_mid':         [-95.9700, 28.6200],
-  'ship_channel_inner':       [-95.9650, 28.6500],
-
-  // Key fishing areas & water nodes
-  'deep_scatter_shell':       [-96.1850, 28.5980],
-  'colorado_river_delta':     [-95.9840, 28.6350],
-  'pass_cavallo_jetty':       [-96.3980, 28.4350],
-  'mitchell_cut':             [-96.0800, 28.5980],
-  'brown_cedar_cut':          [-96.2700, 28.5090],
-  'east_bay_center':          [-95.8400, 28.6140],
-  'matagorda_island_surf':    [-96.1800, 28.4320],
-  'tres_palacios_grass':      [-96.0800, 28.7320],
-
-  // Additional navigable water nodes for coverage
-  'west_bay_open':            [-96.1500, 28.6200],
-  'west_bay_south':           [-96.1500, 28.5500],
-  'west_bay_sw':              [-96.2500, 28.5600],
-  'mid_bay_north':            [-96.0200, 28.6600],
-  'mid_bay_south':            [-96.0200, 28.6100],
-  'east_bay_north':           [-95.8700, 28.6400],
-  'east_bay_south':           [-95.8400, 28.5900],
-  'pass_cavallo_approach':    [-96.3500, 28.4800],
-  'west_bay_channel':         [-96.2000, 28.5800],
-  'palacios_channel':         [-96.2100, 28.6900],
-  'tres_palacios_bay_center': [-96.1200, 28.7100],
-  'matagorda_harbor_channel': [-95.9600, 28.6700],
-  'spoil_island_east':        [-95.8500, 28.6300],
-  'east_bay_deep':            [-95.8000, 28.6300],
-};
-
-// ─── EDGES ───
-// Connect adjacent nodes. Edges are bidirectional. Prefer GIWW as spine.
-const EDGES = [
-  // GIWW spine (main channel — preferred routing)
-  ['palacios_harbor', 'palacios_channel'],
-  ['palacios_channel', 'giww_west_junction'],
-  ['giww_west_junction', 'giww_tres_palacios'],
-  ['giww_tres_palacios', 'giww_mid_west'],
-  ['giww_mid_west', 'giww_colorado_crossing'],
-  ['giww_colorado_crossing', 'giww_east_junction'],
-  ['giww_east_junction', 'giww_caney_creek'],
-  ['giww_caney_creek', 'giww_east_end'],
-  ['giww_east_end', 'giww_sargent_approach'],
-  ['giww_sargent_approach', 'sargent_ramp'],
-
-  // Matagorda Harbor connections
-  ['matagorda_harbor', 'matagorda_harbor_channel'],
-  ['matagorda_harbor_channel', 'giww_colorado_crossing'],
-  ['matagorda_harbor_channel', 'ship_channel_inner'],
-
-  // Matagorda Ship Channel
-  ['ship_channel_mouth', 'ship_channel_mid'],
-  ['ship_channel_mid', 'ship_channel_inner'],
-  ['ship_channel_inner', 'giww_colorado_crossing'],
-
-  // Tres Palacios area
-  ['giww_tres_palacios', 'tres_palacios_bay_center'],
-  ['tres_palacios_bay_center', 'tres_palacios_grass'],
-
-  // West bay connections
-  ['giww_west_junction', 'west_bay_open'],
-  ['west_bay_open', 'west_bay_south'],
-  ['west_bay_open', 'deep_scatter_shell'],
-  ['west_bay_south', 'west_bay_sw'],
-  ['west_bay_south', 'west_bay_channel'],
-  ['west_bay_channel', 'deep_scatter_shell'],
-  ['west_bay_sw', 'brown_cedar_cut'],
-  ['west_bay_sw', 'pass_cavallo_approach'],
-  ['pass_cavallo_approach', 'pass_cavallo_jetty'],
-  ['pass_cavallo_approach', 'brown_cedar_cut'],
-  ['deep_scatter_shell', 'matagorda_island_surf'],
-
-  // Mid bay connections
-  ['giww_colorado_crossing', 'mid_bay_north'],
-  ['mid_bay_north', 'mid_bay_south'],
-  ['mid_bay_south', 'mitchell_cut'],
-  ['mid_bay_south', 'ship_channel_mid'],
-  ['colorado_river_delta', 'mid_bay_north'],
-  ['colorado_river_delta', 'ship_channel_inner'],
-  ['colorado_river_delta', 'giww_colorado_crossing'],
-
-  // East bay connections
-  ['giww_east_junction', 'east_bay_north'],
-  ['giww_caney_creek', 'east_bay_north'],
-  ['east_bay_north', 'east_bay_center'],
-  ['east_bay_north', 'spoil_island_east'],
-  ['east_bay_center', 'east_bay_south'],
-  ['east_bay_center', 'spoil_island_east'],
-  ['spoil_island_east', 'east_bay_deep'],
-  ['east_bay_deep', 'giww_east_end'],
-  ['east_bay_south', 'east_bay_deep'],
-
-  // Cross-bay connections
-  ['mitchell_cut', 'west_bay_south'],
-  ['mitchell_cut', 'mid_bay_south'],
-  ['west_bay_open', 'giww_mid_west'],
+// Route to East Matagorda Bay (wl-12 from GPX)
+const EAST_BAY_ROUTE = [
+  { lat: 28.693098, lng: -95.956347 },
+  { lat: 28.691257, lng: -95.954186 },
+  { lat: 28.701561, lng: -95.93255 },
+  { lat: 28.709718, lng: -95.912993 },
+  { lat: 28.716362, lng: -95.88851 },
+  { lat: 28.71711, lng: -95.886648 },
+  { lat: 28.712395, lng: -95.886679 },
+  { lat: 28.707911, lng: -95.884541 },
+  { lat: 28.6861, lng: -95.879623 },
 ];
 
-// ─── LAND BOUNDARY POLYGON ───
-// Simplified polygon of land masses around Matagorda Bay
-// Points inside this polygon are considered "land" — used for tap validation
-const LAND_POLYGONS = [
-  // Northern shoreline (mainland)
-  [
-    [-96.45, 28.78], [-96.40, 28.76], [-96.30, 28.75], [-96.20, 28.74],
-    [-96.15, 28.76], [-96.10, 28.75], [-96.05, 28.76], [-96.00, 28.75],
-    [-95.97, 28.74], [-95.94, 28.73], [-95.90, 28.74], [-95.85, 28.73],
-    [-95.80, 28.74], [-95.75, 28.76], [-95.70, 28.78], [-95.60, 28.80],
-    [-95.55, 28.82], [-95.55, 28.90], [-96.45, 28.90], [-96.45, 28.78],
-  ],
-  // Matagorda Peninsula / Island (southern barrier)
-  [
-    [-96.45, 28.46], [-96.35, 28.44], [-96.25, 28.43], [-96.15, 28.42],
-    [-96.05, 28.44], [-95.95, 28.45], [-95.85, 28.48], [-95.75, 28.52],
-    [-95.65, 28.55], [-95.55, 28.56], [-95.55, 28.38], [-96.45, 28.38],
-    [-96.45, 28.46],
-  ],
+// Route to West Matagorda Bay via ICW (wl-13 from GPX)
+const WEST_BAY_ICW_ROUTE = [
+  { lat: 28.694128, lng: -95.956334 },
+  { lat: 28.691599, lng: -95.954872 },
+  { lat: 28.686554, lng: -95.966149 },
+  { lat: 28.68334, lng: -95.969352 },
+  { lat: 28.680178, lng: -95.973377 },
+  { lat: 28.676823, lng: -95.972816 },
+  { lat: 28.676261, lng: -95.974758 },
+  { lat: 28.67533, lng: -95.977101 },
+  { lat: 28.672916, lng: -95.977379 },
+  { lat: 28.667909, lng: -95.977652 },
+  { lat: 28.660931, lng: -95.980598 },
+  { lat: 28.658219, lng: -95.982126 },
+  { lat: 28.65382, lng: -95.985891 },
+  { lat: 28.649648, lng: -95.989274 },
+  { lat: 28.641627, lng: -95.995222 },
+  { lat: 28.639132, lng: -95.994395 },
+  { lat: 28.637558, lng: -95.994878 },
+  { lat: 28.634575, lng: -95.995324 },
+  { lat: 28.631572, lng: -95.994906 },
+  { lat: 28.629094, lng: -95.993848 },
+  { lat: 28.62673, lng: -95.992191 },
+  { lat: 28.623968, lng: -95.993681 },
+  { lat: 28.62269, lng: -95.995479 },
+  { lat: 28.62008, lng: -95.998247 },
+  { lat: 28.61531, lng: -96.003549 },
+  { lat: 28.604154, lng: -96.014175 },
 ];
 
-// ─── DIJKSTRA'S ALGORITHM ───
-function buildAdjacency() {
-  const adj = {};
-  for (const id of Object.keys(NODES)) {
-    adj[id] = [];
+// Route to far West Bay via Matagorda Island Cut (wl-14 from GPX)
+// Use for destinations past ~-96.04 longitude (deep into west bay)
+const WEST_BAY_CUT_ROUTE = [
+  { lat: 28.693676, lng: -95.956971 },
+  { lat: 28.691358, lng: -95.955023 },
+  { lat: 28.684849, lng: -95.967574 },
+  { lat: 28.681699, lng: -95.972254 },
+  { lat: 28.6782, lng: -95.974051 },
+  { lat: 28.676781, lng: -95.972649 },
+  { lat: 28.67563, lng: -95.976117 },
+  { lat: 28.677348, lng: -95.977141 },
+  { lat: 28.68058, lng: -95.976207 },
+  { lat: 28.681526, lng: -95.977285 },
+  { lat: 28.677222, lng: -95.985929 },
+  { lat: 28.665156, lng: -96.01326 },
+  { lat: 28.661706, lng: -96.020873 },
+  { lat: 28.65957, lng: -96.038953 },
+  { lat: 28.657907, lng: -96.046151 },
+  { lat: 28.648993, lng: -96.061713 },
+  { lat: 28.640526, lng: -96.07023 },
+  { lat: 28.636478, lng: -96.074898 },
+  { lat: 28.633324, lng: -96.087489 },
+  { lat: 28.629182, lng: -96.094689 },
+  { lat: 28.626376, lng: -96.099866 },
+  { lat: 28.623495, lng: -96.098682 },
+  { lat: 28.615842, lng: -96.092414 },
+  { lat: 28.606724, lng: -96.086251 },
+];
+
+// ─── ROUTING LOGIC ───
+
+// Find the closest point on a route to a destination, returns { index, dist }
+function findClosestPointOnRoute(route, destLat, destLng) {
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < route.length; i++) {
+    const d = haversineNM(route[i].lat, route[i].lng, destLat, destLng);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+    }
   }
-  for (const [a, b] of EDGES) {
-    const [lngA, latA] = NODES[a];
-    const [lngB, latB] = NODES[b];
-    const dist = haversineNM(latA, lngA, latB, lngB);
-    adj[a].push({ node: b, dist });
-    adj[b].push({ node: a, dist });
-  }
-  return adj;
+  return { index: bestIdx, dist: bestDist };
 }
 
-const adjacency = buildAdjacency();
+// Pick the best anchor route for a destination
+function pickRoute(destLat, destLng) {
+  // East Bay: destination is east of harbor (lng > -95.94 roughly, or lat > 28.70 + east)
+  // West Bay ICW: destination is southwest, closer to the ICW path
+  // West Bay Cut: destination is far west/south, past -96.04 lng
 
-function dijkstra(startId, endId) {
-  const dist = {};
-  const prev = {};
-  const visited = new Set();
+  const eastResult = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
+  const icwResult = findClosestPointOnRoute(WEST_BAY_ICW_ROUTE, destLat, destLng);
+  const cutResult = findClosestPointOnRoute(WEST_BAY_CUT_ROUTE, destLat, destLng);
 
-  for (const id of Object.keys(NODES)) {
-    dist[id] = Infinity;
-  }
-  dist[startId] = 0;
+  // Pick whichever route gets closest to the destination
+  const candidates = [
+    { route: EAST_BAY_ROUTE, name: 'East Bay', ...eastResult },
+    { route: WEST_BAY_ICW_ROUTE, name: 'West Bay ICW', ...icwResult },
+    { route: WEST_BAY_CUT_ROUTE, name: 'West Bay Cut', ...cutResult },
+  ];
 
-  while (true) {
-    // Find unvisited node with smallest distance
-    let current = null;
-    let minDist = Infinity;
-    for (const id of Object.keys(NODES)) {
-      if (!visited.has(id) && dist[id] < minDist) {
-        minDist = dist[id];
-        current = id;
-      }
-    }
-    if (current === null || current === endId) break;
-    visited.add(current);
-
-    for (const edge of adjacency[current]) {
-      const newDist = dist[current] + edge.dist;
-      if (newDist < dist[edge.node]) {
-        dist[edge.node] = newDist;
-        prev[edge.node] = current;
-      }
-    }
-  }
-
-  if (dist[endId] === Infinity) return null;
-
-  // Reconstruct path
-  const path = [];
-  let cur = endId;
-  while (cur) {
-    path.unshift(cur);
-    cur = prev[cur];
-  }
-  return path;
+  candidates.sort((a, b) => a.dist - b.dist);
+  return candidates[0];
 }
 
 // ─── PUBLIC API ───
 
-// Find nearest graph node to a [lat, lng] coordinate
-export function findNearestNode(lat, lng) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const [id, [nodeLng, nodeLat]] of Object.entries(NODES)) {
-    const d = haversineNM(lat, lng, nodeLat, nodeLng);
-    if (d < bestDist) {
-      bestDist = d;
-      best = id;
-    }
-  }
-  return { id: best, lat: NODES[best][1], lng: NODES[best][0], dist: bestDist };
-}
-
-// Find nearest harbor node (for route start)
-const HARBOR_NODES = ['palacios_harbor', 'matagorda_harbor', 'sargent_ramp'];
-export function findNearestHarbor(lat, lng) {
-  let best = null;
-  let bestDist = Infinity;
-  for (const id of HARBOR_NODES) {
-    const [nodeLng, nodeLat] = NODES[id];
-    const d = haversineNM(lat, lng, nodeLat, nodeLng);
-    if (d < bestDist) {
-      bestDist = d;
-      best = id;
-    }
-  }
-  return { id: best, lat: NODES[best][1], lng: NODES[best][0], name: best.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) };
-}
-
-// Check if a point is on land (inside any land polygon)
-function pointInPolygon(lat, lng, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i]; // [lng, lat]
-    const [xj, yj] = polygon[j];
-    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
-
-export function isOnLand(lat, lng) {
-  for (const poly of LAND_POLYGONS) {
-    if (pointInPolygon(lat, lng, poly)) return true;
-  }
-  return false;
-}
-
-// Compute a water-only route between two points
-// Returns array of {lat, lng, title} waypoints, or null if no path
+// Compute a water route from harbor to destination
+// Follows the real GPX anchor route, then peels off to the fishing spot
 export function computeWaterRoute(startLat, startLng, startName, destLat, destLng, destName) {
-  const origin = findNearestHarbor(startLat, startLng);
-  const dest = findNearestNode(destLat, destLng);
+  // If destination is very close to harbor (< 0.5 NM), just go direct
+  const directDist = haversineNM(HARBOR.lat, HARBOR.lng, destLat, destLng);
+  if (directDist < 0.5) {
+    return [
+      { lat: HARBOR.lat, lng: HARBOR.lng, title: startName || HARBOR.name, desc: 'Starting point', depth: '', warnings: [] },
+      { lat: destLat, lng: destLng, title: destName || 'Destination', desc: 'Destination', depth: '', warnings: [] },
+    ];
+  }
 
-  if (!origin.id || !dest.id) return null;
+  const best = pickRoute(destLat, destLng);
 
-  const pathIds = dijkstra(origin.id, dest.id);
-  if (!pathIds) return null;
+  // Build waypoints: Harbor -> follow anchor route up to peel-off point -> destination
+  const waypoints = [];
 
-  // Convert node IDs to waypoint objects
-  const waypoints = pathIds.map((id, idx) => {
-    const [lng, lat] = NODES[id];
-    const label = id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-    return {
-      lat,
-      lng,
-      title: idx === 0 ? (startName || label) : idx === pathIds.length - 1 ? (destName || label) : label,
-      desc: idx === 0 ? 'Starting point' : idx === pathIds.length - 1 ? 'Destination' : 'Channel waypoint',
-      depth: '',
-      warnings: [],
-    };
+  // Start at harbor
+  waypoints.push({
+    lat: HARBOR.lat, lng: HARBOR.lng,
+    title: startName || HARBOR.name,
+    desc: 'Starting point',
+    depth: '', warnings: [],
   });
+
+  // Follow the anchor route up to and including the peel-off index
+  for (let i = 0; i <= best.index; i++) {
+    const pt = best.route[i];
+    // Skip if this point is very close to harbor (< 0.1 NM) to avoid duplication
+    if (haversineNM(pt.lat, pt.lng, HARBOR.lat, HARBOR.lng) < 0.1) continue;
+    waypoints.push({
+      lat: pt.lat, lng: pt.lng,
+      title: i === 0 ? 'Channel entrance' : `Channel pt ${i}`,
+      desc: `${best.name} route`,
+      depth: '', warnings: [],
+    });
+  }
+
+  // Add destination if it's not already the last point
+  const lastWp = waypoints[waypoints.length - 1];
+  const distToLast = haversineNM(lastWp.lat, lastWp.lng, destLat, destLng);
+  if (distToLast > 0.05) {
+    waypoints.push({
+      lat: destLat, lng: destLng,
+      title: destName || 'Destination',
+      desc: 'Destination',
+      depth: '', warnings: [],
+    });
+  } else {
+    // Destination is basically on the route — just rename the last point
+    lastWp.title = destName || 'Destination';
+    lastWp.desc = 'Destination';
+  }
 
   return waypoints;
 }
 
-// Get all graph nodes (for debugging/display)
-export function getGraphNodes() {
-  return Object.entries(NODES).map(([id, [lng, lat]]) => ({ id, lat, lng }));
+// Find nearest harbor (for compatibility with existing code)
+export function findNearestHarbor(lat, lng) {
+  return { id: 'matagorda_harbor', lat: HARBOR.lat, lng: HARBOR.lng, name: HARBOR.name };
 }
 
-// Get all graph edges as coordinate pairs (for debugging/display)
-export function getGraphEdges() {
-  return EDGES.map(([a, b]) => {
-    const [lngA, latA] = NODES[a];
-    const [lngB, latB] = NODES[b];
-    return [[latA, lngA], [latB, lngB]];
-  });
+export function findNearestNode(lat, lng) {
+  return { id: 'dest', lat, lng, dist: 0 };
+}
+
+export function isOnLand() {
+  return false;
 }
