@@ -9,12 +9,19 @@ export const BAY_CONFIGS = {
     fromLatLng: (lat, lng) => ({ x: ((lng + 95.99) / 0.20) * 100, y: ((28.75 - lat) / 0.14) * 100 }),
     waterBounds: { minLat: 28.670, maxLat: 28.735, minLng: -95.990, maxLng: -95.830 },
   },
-  galveston: {
-    center: [29.30, -94.85],
+  west_matagorda: {
+    center: [28.68, -96.10],
     zoom: 11,
-    toLatLng: (pos) => [29.55 - (pos.y / 100) * 0.50, -95.15 + (pos.x / 100) * 0.70],
-    fromLatLng: (lat, lng) => ({ x: ((lng + 95.15) / 0.70) * 100, y: ((29.55 - lat) / 0.50) * 100 }),
-    waterBounds: { minLat: 29.100, maxLat: 29.520, minLng: -95.130, maxLng: -94.600 },
+    toLatLng: (pos) => [28.78 - (pos.y / 100) * 0.20, -96.30 + (pos.x / 100) * 0.40],
+    fromLatLng: (lat, lng) => ({ x: ((lng + 96.30) / 0.40) * 100, y: ((28.78 - lat) / 0.20) * 100 }),
+    waterBounds: { minLat: 28.580, maxLat: 28.750, minLng: -96.300, maxLng: -95.950 },
+  },
+  san_antonio: {
+    center: [28.30, -96.60],
+    zoom: 11,
+    toLatLng: (pos) => [28.45 - (pos.y / 100) * 0.30, -96.80 + (pos.x / 100) * 0.40],
+    fromLatLng: (lat, lng) => ({ x: ((lng + 96.80) / 0.40) * 100, y: ((28.45 - lat) / 0.30) * 100 }),
+    waterBounds: { minLat: 28.200, maxLat: 28.420, minLng: -96.800, maxLng: -96.400 },
   },
 };
 
@@ -44,13 +51,20 @@ export const BAY_DATA = {
       { user: 'KayakJen', time: 'Yesterday', text: '4 reds on Gulp in Oyster Lake back.', likes: 15 },
     ],
   },
-  galveston: {
-    id: 'galveston', name: 'Galveston Bay Complex', sub: 'West Bay, Trinity, East Bay',
-    region: 'Galveston, TX', cameras: [{ name: 'Pier Cam' }, { name: 'Dike Cam' }],
+  west_matagorda: {
+    id: 'west_matagorda', name: 'West Matagorda Bay', sub: 'West Bay, Tres Palacios, Turtle Bay',
+    region: 'Matagorda, TX', cameras: [{ name: 'Harbor' }],
     reports: [
-      { user: 'BayRat', time: '3h ago', text: 'Sheepshead at dike rocks. Fiddler crabs.', likes: 9 },
-      { user: 'TrophyHunter', time: '6h ago', text: 'Big trout on topwater near Dollar Reef sunrise.', likes: 22 },
-      { user: 'WadeKing', time: '1d ago', text: 'Slot reds in West Bay grass. Gulp shrimp.', likes: 16 },
+      { user: 'CaptMike', time: '4h ago', text: 'Reds on shell reef west side. Gold spoon.', likes: 10 },
+      { user: 'WadeFisher22', time: '1d ago', text: 'Trout in the cuts on topwater at dawn.', likes: 7 },
+    ],
+  },
+  san_antonio: {
+    id: 'san_antonio', name: 'San Antonio Bay', sub: 'Guadalupe Delta, Hynes Bay, Espiritu Santo',
+    region: 'Seadrift, TX', cameras: [{ name: 'Seadrift Cam' }],
+    reports: [
+      { user: 'DeltaDrifter', time: '2h ago', text: 'Slot reds on popping cork in the delta.', likes: 14 },
+      { user: 'WadeKing', time: '6h ago', text: 'Trout on soft plastics near Pringle Lake.', likes: 11 },
     ],
   },
 };

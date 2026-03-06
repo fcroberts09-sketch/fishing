@@ -47,17 +47,17 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   // ─── PERSISTED STATE (localStorage) ───
-  const [allSpots, setAllSpots] = useLocalStorage('tt_spots4', DEFAULT_SPOTS);
-  const [launches, setLaunches] = useLocalStorage('tt_launches5', DEFAULT_LAUNCHES);
-  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones3', DEFAULT_SHADE_ZONES);
-  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines4', DEFAULT_WADE_LINES);
-  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos3', DEFAULT_PHOTOS);
+  const [allSpots, setAllSpots] = useLocalStorage('tt_spots5', DEFAULT_SPOTS);
+  const [launches, setLaunches] = useLocalStorage('tt_launches6', DEFAULT_LAUNCHES);
+  const [shadeZones, setShadeZones] = useLocalStorage('tt_zones4', DEFAULT_SHADE_ZONES);
+  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines5', DEFAULT_WADE_LINES);
+  const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos4', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
-  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth3', DEFAULT_DEPTH_MARKERS);
-  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars3', DEFAULT_SAND_BARS);
-  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads3', DEFAULT_SHELL_PADS);
-  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers5', { wadeLines: true, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
+  const [depthMarkers, setDepthMarkers] = useLocalStorage('tt_depth4', DEFAULT_DEPTH_MARKERS);
+  const [sandBars, setSandBars] = useLocalStorage('tt_sandbars4', DEFAULT_SAND_BARS);
+  const [shellPads, setShellPads] = useLocalStorage('tt_shellpads4', DEFAULT_SHELL_PADS);
+  const [mapLayers, setMapLayers] = useLocalStorage('tt_layers6', { wadeLines: true, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
   const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes', {});
   const [editingRoute, setEditingRoute] = useState(false);
@@ -296,11 +296,11 @@ export default function App() {
   };
 
   const latLngToPosition = (lat, lng) => {
-    const bc = selBay?.id === 'galveston' ? BAY_CONFIGS.galveston : BAY_CONFIGS.matagorda;
-    const refLat = bc === BAY_CONFIGS.galveston ? 29.45 : 28.85;
-    const refLng = bc === BAY_CONFIGS.galveston ? -95.10 : -96.18;
-    const spanLat = bc === BAY_CONFIGS.galveston ? 0.30 : 0.32;
-    const spanLng = bc === BAY_CONFIGS.galveston ? 0.55 : 0.62;
+    const bc = BAY_CONFIGS[selBay?.id] || BAY_CONFIGS.matagorda;
+    const refLat = 28.85;
+    const refLng = -96.18;
+    const spanLat = 0.32;
+    const spanLng = 0.62;
     const y = ((refLat - lat) / spanLat) * 100;
     const x = ((lng - refLng) / spanLng) * 100;
     return { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
@@ -826,7 +826,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               {Object.values(BAY_DATA).map((bay) => (
                 <div key={bay.id} onClick={() => openBay(bay.id)} style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.bdr}`, overflow: 'hidden', cursor: 'pointer', transition: 'border-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.borderColor = C.cyan} onMouseLeave={(e) => e.currentTarget.style.borderColor = C.bdr}>
                   <div style={{ height: 160, background: '#081828', position: 'relative', overflow: 'hidden' }}>
-                    <img src={`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/10/${bay.id === 'matagorda' ? '410/254' : '409/254'}.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.background = '#0c4a6e'; }} />
+                    <img src={`https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2023_3857/default/GoogleMapsCompatible/10/${bay.id === 'san_antonio' ? '409/254' : '410/254'}.jpg`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.background = '#0c4a6e'; }} />
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%,#081828)' }} />
                     <div style={{ position: 'absolute', bottom: 8, left: 10, display: 'flex', gap: 6 }}>
                       {bay.cameras?.map((c) => <span key={c.name} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 4, background: '#000a', fontSize: 9, fontWeight: 700 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: C.red }} />LIVE</span>)}
@@ -1626,7 +1626,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               <Inp label="Longitude" isMobile={isMobile} placeholder="e.g. -95.9650" value={settings._poiLng || ''} onChange={(e) => setSettings({ ...settings, _poiLng: e.target.value })} />
             </div>
             <Inp label="Notes (optional)" isMobile={isMobile} placeholder="Hours, phone, details..." value={settings._poiNotes || ''} onChange={(e) => setSettings({ ...settings, _poiNotes: e.target.value })} />
-            <Sel label="Bay" isMobile={isMobile} value={settings._poiBay || selBay?.id || 'matagorda'} onChange={(e) => setSettings({ ...settings, _poiBay: e.target.value })} options={[{ value: 'matagorda', label: 'Matagorda Bay' }, { value: 'galveston', label: 'Galveston Bay' }]} />
+            <Sel label="Bay" isMobile={isMobile} value={settings._poiBay || selBay?.id || 'matagorda'} onChange={(e) => setSettings({ ...settings, _poiBay: e.target.value })} options={[{ value: 'matagorda', label: 'Matagorda Bay' }, { value: 'west_matagorda', label: 'West Matagorda Bay' }, { value: 'san_antonio', label: 'San Antonio Bay' }]} />
             <Btn primary small isMobile={isMobile} onClick={() => {
               const name = settings._poiName?.trim();
               const lat = parseFloat(settings._poiLat);

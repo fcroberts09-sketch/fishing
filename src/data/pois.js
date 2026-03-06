@@ -32,25 +32,21 @@ export const BAY_AREA_LABELS = [
   { id: 'al-12', bay: 'matagorda', name: 'Chinquapin Flats', lat: 28.7240, lng: -95.8510, size: 'small', type: 'water' },
   { id: 'al-13', bay: 'matagorda', name: 'Boggy Bayou', lat: 28.7400, lng: -95.9800, size: 'small', type: 'water' },
   { id: 'al-14', bay: 'matagorda', name: 'Caney Creek', lat: 28.7350, lng: -95.9250, size: 'small', type: 'water' },
-  // GALVESTON
-  { id: 'al-20', bay: 'galveston', name: 'Galveston Bay', lat: 29.3500, lng: -94.8500, size: 'large', type: 'water' },
-  { id: 'al-21', bay: 'galveston', name: 'West Bay', lat: 29.2000, lng: -94.9500, size: 'large', type: 'water' },
-  { id: 'al-22', bay: 'galveston', name: 'East Bay', lat: 29.4500, lng: -94.5500, size: 'large', type: 'water' },
-  { id: 'al-23', bay: 'galveston', name: 'Trinity Bay', lat: 29.5500, lng: -94.7500, size: 'large', type: 'water' },
-  { id: 'al-24', bay: 'galveston', name: 'Clear Lake', lat: 29.5400, lng: -95.0300, size: 'medium', type: 'water' },
-  { id: 'al-25', bay: 'galveston', name: 'Dollar Reef', lat: 29.2950, lng: -94.8100, size: 'small', type: 'reef' },
-  { id: 'al-26', bay: 'galveston', name: 'Texas City Dike', lat: 29.3840, lng: -94.9000, size: 'small', type: 'land' },
-  { id: 'al-27', bay: 'galveston', name: 'San Luis Pass', lat: 29.0830, lng: -95.1200, size: 'medium', type: 'channel' },
-  { id: 'al-28', bay: 'galveston', name: 'Galveston Island', lat: 29.2500, lng: -94.8800, size: 'medium', type: 'land' },
-  { id: 'al-29', bay: 'galveston', name: 'Bolivar Peninsula', lat: 29.4200, lng: -94.6500, size: 'medium', type: 'land' },
-  { id: 'al-30', bay: 'galveston', name: 'Houston Ship Channel', lat: 29.3600, lng: -94.8000, size: 'small', type: 'channel' },
-  { id: 'al-31', bay: 'galveston', name: 'Confederate Reef', lat: 29.3460, lng: -94.7230, size: 'small', type: 'reef' },
-  { id: 'al-32', bay: 'galveston', name: 'Chocolate Bay', lat: 29.3200, lng: -95.0800, size: 'medium', type: 'water' },
-  { id: 'al-33', bay: 'galveston', name: 'Moses Lake', lat: 29.3700, lng: -94.9800, size: 'small', type: 'water' },
-  { id: 'al-34', bay: 'galveston', name: 'Jones Bay', lat: 29.2300, lng: -94.9200, size: 'small', type: 'water' },
-  { id: 'al-35', bay: 'galveston', name: 'Offatts Bayou', lat: 29.2800, lng: -94.8300, size: 'small', type: 'water' },
-  { id: 'al-36', bay: 'galveston', name: 'Kemah', lat: 29.5435, lng: -95.0235, size: 'small', type: 'land' },
-  { id: 'al-37', bay: 'galveston', name: 'Seabrook Flats', lat: 29.5200, lng: -94.9600, size: 'small', type: 'water' },
+  // WEST MATAGORDA BAY
+  { id: 'al-20', bay: 'west_matagorda', name: 'West Matagorda Bay', lat: 28.6800, lng: -96.1000, size: 'large', type: 'water' },
+  { id: 'al-21', bay: 'west_matagorda', name: 'Tres Palacios Bay', lat: 28.7350, lng: -96.1800, size: 'medium', type: 'water' },
+  { id: 'al-22', bay: 'west_matagorda', name: 'Turtle Bay', lat: 28.6600, lng: -96.2000, size: 'medium', type: 'water' },
+  { id: 'al-23', bay: 'west_matagorda', name: 'Matagorda Ship Channel', lat: 28.6700, lng: -96.0500, size: 'small', type: 'channel' },
+  { id: 'al-24', bay: 'west_matagorda', name: 'Matagorda Island', lat: 28.6000, lng: -96.1500, size: 'medium', type: 'land' },
+  { id: 'al-25', bay: 'west_matagorda', name: 'Palacios Point', lat: 28.7300, lng: -96.2200, size: 'small', type: 'land' },
+  // SAN ANTONIO BAY
+  { id: 'al-30', bay: 'san_antonio', name: 'San Antonio Bay', lat: 28.3200, lng: -96.6000, size: 'large', type: 'water' },
+  { id: 'al-31', bay: 'san_antonio', name: 'Guadalupe Delta', lat: 28.4000, lng: -96.6800, size: 'medium', type: 'water' },
+  { id: 'al-32', bay: 'san_antonio', name: 'Hynes Bay', lat: 28.3500, lng: -96.5500, size: 'medium', type: 'water' },
+  { id: 'al-33', bay: 'san_antonio', name: 'Espiritu Santo Bay', lat: 28.2800, lng: -96.5200, size: 'medium', type: 'water' },
+  { id: 'al-34', bay: 'san_antonio', name: 'Pringle Lake', lat: 28.3600, lng: -96.6200, size: 'small', type: 'water' },
+  { id: 'al-35', bay: 'san_antonio', name: 'Seadrift', lat: 28.4100, lng: -96.7100, size: 'small', type: 'land' },
+  { id: 'al-36', bay: 'san_antonio', name: 'Pass Cavallo', lat: 28.3900, lng: -96.4200, size: 'small', type: 'channel' },
 ];
 
 // ─── WIND ARROW GRID ───
@@ -63,26 +59,27 @@ export function generateWindArrows(windDir, windSpeed, bayId) {
   const blowDir = (windDir + 180) % 360;
 
   // Water-only GPS positions — fewer, well-spaced across all bays
-  const waterPositions = bayId === 'galveston' ? [
-    // Galveston Bay — spread evenly
-    { lat: 29.34, lng: -94.82 },   // central bay
-    { lat: 29.40, lng: -94.78 },   // upper bay
-    { lat: 29.30, lng: -94.88 },   // lower bay
-    // West Bay
-    { lat: 29.20, lng: -94.95 },   // west bay center
-    // East Bay
-    { lat: 29.45, lng: -94.55 },   // east bay
-    // Trinity Bay
-    { lat: 29.50, lng: -94.76 },   // trinity
+  const waterPositions = bayId === 'west_matagorda' ? [
+    { lat: 28.700, lng: -96.050 },
+    { lat: 28.690, lng: -96.120 },
+    { lat: 28.680, lng: -96.200 },
+    { lat: 28.720, lng: -96.100 },
+    { lat: 28.710, lng: -96.180 },
+  ] : bayId === 'san_antonio' ? [
+    { lat: 28.330, lng: -96.580 },
+    { lat: 28.350, lng: -96.620 },
+    { lat: 28.300, lng: -96.550 },
+    { lat: 28.370, lng: -96.660 },
+    { lat: 28.280, lng: -96.520 },
   ] : [
     // East Matagorda Bay — well-spaced, water only
-    { lat: 28.710, lng: -95.870 },   // east bay center
-    { lat: 28.700, lng: -95.910 },   // east bay west side
-    { lat: 28.715, lng: -95.840 },   // east bay east side
+    { lat: 28.710, lng: -95.870 },
+    { lat: 28.700, lng: -95.910 },
+    { lat: 28.715, lng: -95.840 },
     // West Matagorda Bay — big open water
-    { lat: 28.720, lng: -96.000 },   // west bay east
-    { lat: 28.725, lng: -96.100 },   // west bay center
-    { lat: 28.720, lng: -96.200 },   // west bay west
+    { lat: 28.720, lng: -96.000 },
+    { lat: 28.725, lng: -96.100 },
+    { lat: 28.720, lng: -96.200 },
   ];
 
   for (const pos of waterPositions) {
@@ -121,7 +118,8 @@ function calcWaveHeight(windSpeedMph, fetchNM) {
 // Fetch distances (NM) per 8 compass directions [N,NE,E,SE,S,SW,W,NW]
 const BAY_FETCH = {
   matagorda: [3, 5, 8, 6, 4, 3, 2, 2],
-  galveston: [4, 6, 10, 8, 5, 4, 3, 3],
+  west_matagorda: [4, 6, 9, 7, 5, 3, 2, 3],
+  san_antonio: [5, 7, 10, 8, 6, 4, 3, 4],
 };
 
 function getFetch(bayId, windFromDir) {
@@ -136,15 +134,18 @@ export function generateWaveMarkers(windDir, windSpeed, bayId) {
   const baseFetch = getFetch(bayId, windDir);
 
   // Water-only GPS positions with local fetch multipliers
-  const positions = bayId === 'galveston' ? [
-    { lat: 29.340, lng: -94.850, mult: 1.0 },
-    { lat: 29.300, lng: -94.810, mult: 0.9 },
-    { lat: 29.380, lng: -94.880, mult: 0.85 },
-    { lat: 29.200, lng: -94.950, mult: 0.5 },
-    { lat: 29.420, lng: -94.750, mult: 0.9 },
-    { lat: 29.360, lng: -94.780, mult: 1.0 },
-    { lat: 29.480, lng: -94.800, mult: 0.55 },
-    { lat: 29.250, lng: -94.920, mult: 0.6 },
+  const positions = bayId === 'west_matagorda' ? [
+    { lat: 28.700, lng: -96.050, mult: 0.9 },
+    { lat: 28.690, lng: -96.120, mult: 1.0 },
+    { lat: 28.680, lng: -96.200, mult: 0.85 },
+    { lat: 28.720, lng: -96.100, mult: 0.8 },
+    { lat: 28.710, lng: -96.180, mult: 0.7 },
+  ] : bayId === 'san_antonio' ? [
+    { lat: 28.330, lng: -96.580, mult: 1.0 },
+    { lat: 28.350, lng: -96.620, mult: 0.9 },
+    { lat: 28.300, lng: -96.550, mult: 0.85 },
+    { lat: 28.370, lng: -96.660, mult: 0.7 },
+    { lat: 28.280, lng: -96.520, mult: 0.6 },
   ] : [
     { lat: 28.710, lng: -95.865, mult: 1.0 },
     { lat: 28.715, lng: -95.845, mult: 0.9 },
