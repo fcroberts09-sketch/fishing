@@ -1,6 +1,7 @@
 // Navigation routing engine for Matagorda Bay
 // Uses real GPX boat routes as anchor paths — all navigation follows these channels
 // then peels off at the nearest point to reach the destination.
+// Includes land avoidance: routes never cross major marsh/land areas.
 
 import { haversineNM } from '../utils/geo';
 
@@ -54,7 +55,6 @@ const WEST_BAY_ICW_ROUTE = [
 ];
 
 // Route to far West Bay via Matagorda Island Cut (wl-14 from GPX)
-// Use for destinations past ~-96.04 longitude (deep into west bay)
 const WEST_BAY_CUT_ROUTE = [
   { lat: 28.693676, lng: -95.956971 },
   { lat: 28.691358, lng: -95.955023 },
@@ -82,9 +82,135 @@ const WEST_BAY_CUT_ROUTE = [
   { lat: 28.606724, lng: -96.086251 },
 ];
 
+// Route south from harbor into open East Matagorda Bay
+// Follows East Bay channel briefly then turns south through verified open water.
+// Water coordinates verified from GPX drift line wl-8 and known fishing spots.
+const SOUTH_BAY_ROUTE = [
+  { lat: 28.693098, lng: -95.956347 },  // channel exit
+  { lat: 28.691257, lng: -95.954186 },  // heading east through channel
+  { lat: 28.701561, lng: -95.932550 },  // East Bay channel (verified open water)
+  { lat: 28.688872, lng: -95.928976 },  // turning south (wl-8 drift line)
+  { lat: 28.674439, lng: -95.926751 },  // open water south (wl-8 drift line)
+  { lat: 28.660467, lng: -95.933015 },  // open water (wl-8 drift line)
+  { lat: 28.646207, lng: -95.922664 },  // Deep Scatter Shell area
+  { lat: 28.634135, lng: -95.925605 },  // Fishing Drains area
+];
+
+// ─── LAND AVOIDANCE ───
+// Simplified land polygons for major marsh/land areas in Matagorda Bay.
+// Routes that cross these polygons are rerouted through safe water waypoints.
+// Add more polygons as needed for other areas.
+
+const LAND_POLYGONS = [
+  // Main marsh peninsula between ICW channel and open East Matagorda Bay.
+  // The ICW runs SW from the harbor along the west side of this marsh.
+  // Open bay water is to the east/south. The Colorado River cuts through.
+  // Bounded conservatively: all known water points (routes, spots, wade lines)
+  // have been verified to be outside this polygon.
+  [
+    { lat: 28.680, lng: -95.965 },
+    { lat: 28.680, lng: -95.938 },
+    { lat: 28.625, lng: -95.938 },
+    { lat: 28.625, lng: -95.965 },
+  ],
+];
+
+// ─── GEOMETRY UTILITIES ───
+
+// Ray-casting point-in-polygon test
+function pointInPolygon(lat, lng, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const yi = polygon[i].lat, xi = polygon[i].lng;
+    const yj = polygon[j].lat, xj = polygon[j].lng;
+    if (((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+// Cross product for segment orientation
+function cross(o, a, b) {
+  return (a.lng - o.lng) * (b.lat - o.lat) - (a.lat - o.lat) * (b.lng - o.lng);
+}
+
+// Check if two line segments intersect (proper intersection only)
+function segmentsIntersect(a1, a2, b1, b2) {
+  const d1 = cross(b1, b2, a1);
+  const d2 = cross(b1, b2, a2);
+  const d3 = cross(a1, a2, b1);
+  const d4 = cross(a1, a2, b2);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+    return true;
+  }
+  return false;
+}
+
+// Check if a line segment from p1 to p2 crosses any land polygon
+function segmentCrossesLand(p1, p2) {
+  for (const polygon of LAND_POLYGONS) {
+    if (pointInPolygon(p1.lat, p1.lng, polygon)) return true;
+    if (pointInPolygon(p2.lat, p2.lng, polygon)) return true;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      if (segmentsIntersect(p1, p2, polygon[i], polygon[j])) return true;
+    }
+  }
+  return false;
+}
+
+// Collected safe water waypoints from all anchor routes (for intermediate routing)
+const SAFE_WATER_POINTS = [
+  ...EAST_BAY_ROUTE,
+  ...WEST_BAY_ICW_ROUTE,
+  ...WEST_BAY_CUT_ROUTE,
+  ...SOUTH_BAY_ROUTE,
+];
+
+// Find intermediate waypoints to route around land between two points
+function findSafeIntermediates(p1, p2) {
+  if (!segmentCrossesLand(p1, p2)) return [];
+
+  // Try single intermediate waypoint (shortest total distance)
+  let best = null;
+  let bestDist = Infinity;
+  for (const wp of SAFE_WATER_POINTS) {
+    const d1 = haversineNM(p1.lat, p1.lng, wp.lat, wp.lng);
+    const d2 = haversineNM(wp.lat, wp.lng, p2.lat, p2.lng);
+    if (d1 < 0.05 || d2 < 0.05) continue;
+    if (!segmentCrossesLand(p1, wp) && !segmentCrossesLand(wp, p2)) {
+      const total = d1 + d2;
+      if (total < bestDist) {
+        bestDist = total;
+        best = wp;
+      }
+    }
+  }
+  if (best) return [best];
+
+  // Try two intermediates if single didn't work
+  const reachable = SAFE_WATER_POINTS.filter(wp => {
+    const d = haversineNM(p1.lat, p1.lng, wp.lat, wp.lng);
+    return d > 0.05 && d < 10 && !segmentCrossesLand(p1, wp);
+  });
+  for (const wp1 of reachable) {
+    for (const wp2 of SAFE_WATER_POINTS) {
+      const d2 = haversineNM(wp2.lat, wp2.lng, p2.lat, p2.lng);
+      if (d2 < 0.05) continue;
+      if (haversineNM(wp1.lat, wp1.lng, wp2.lat, wp2.lng) < 0.05) continue;
+      if (!segmentCrossesLand(wp1, wp2) && !segmentCrossesLand(wp2, p2)) {
+        return [wp1, wp2];
+      }
+    }
+  }
+
+  return []; // No safe path found — fallback to direct
+}
+
 // ─── ROUTING LOGIC ───
 
-// Find the closest point on a route to a destination, returns { index, dist }
 function findClosestPointOnRoute(route, destLat, destLng) {
   let bestIdx = 0;
   let bestDist = Infinity;
@@ -98,33 +224,42 @@ function findClosestPointOnRoute(route, destLat, destLng) {
   return { index: bestIdx, dist: bestDist };
 }
 
-// Pick the best anchor route for a destination
+// Pick the best anchor route and peel-off point for a destination.
+// Prefers peel-offs that don't cross land. Among land-free options, picks shortest.
 function pickRoute(destLat, destLng) {
-  // East Bay: destination is east of harbor (lng > -95.94 roughly, or lat > 28.70 + east)
-  // West Bay ICW: destination is southwest, closer to the ICW path
-  // West Bay Cut: destination is far west/south, past -96.04 lng
-
-  const eastResult = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
-  const icwResult = findClosestPointOnRoute(WEST_BAY_ICW_ROUTE, destLat, destLng);
-  const cutResult = findClosestPointOnRoute(WEST_BAY_CUT_ROUTE, destLat, destLng);
-
-  // Pick whichever route gets closest to the destination
-  const candidates = [
-    { route: EAST_BAY_ROUTE, name: 'East Bay', ...eastResult },
-    { route: WEST_BAY_ICW_ROUTE, name: 'West Bay ICW', ...icwResult },
-    { route: WEST_BAY_CUT_ROUTE, name: 'West Bay Cut', ...cutResult },
+  const routes = [
+    { route: EAST_BAY_ROUTE, name: 'East Bay' },
+    { route: WEST_BAY_ICW_ROUTE, name: 'West Bay ICW' },
+    { route: WEST_BAY_CUT_ROUTE, name: 'West Bay Cut' },
+    { route: SOUTH_BAY_ROUTE, name: 'South Bay' },
   ];
 
-  candidates.sort((a, b) => a.dist - b.dist);
+  const candidates = [];
+  for (const r of routes) {
+    const { index, dist } = findClosestPointOnRoute(r.route, destLat, destLng);
+    const crossesLand = segmentCrossesLand(
+      r.route[index],
+      { lat: destLat, lng: destLng }
+    );
+    candidates.push({ route: r.route, name: r.name, index, dist, crossesLand });
+  }
+
+  // Prefer no land crossing, then shortest peel-off distance
+  candidates.sort((a, b) => {
+    if (a.crossesLand !== b.crossesLand) return a.crossesLand ? 1 : -1;
+    return a.dist - b.dist;
+  });
+
   return candidates[0];
 }
 
 // ─── PUBLIC API ───
 
-// Compute a water route from harbor to destination
-// Follows the real GPX anchor route, then peels off to the fishing spot
+// Compute a water route from harbor to destination.
+// Follows the best anchor route, peels off to the fishing spot,
+// and avoids crossing land/marsh areas.
 export function computeWaterRoute(startLat, startLng, startName, destLat, destLng, destName) {
-  // If destination is very close to harbor (< 0.5 NM), just go direct
+  // If destination is very close to harbor, go direct
   const directDist = haversineNM(HARBOR.lat, HARBOR.lng, destLat, destLng);
   if (directDist < 0.5) {
     return [
@@ -135,42 +270,52 @@ export function computeWaterRoute(startLat, startLng, startName, destLat, destLn
 
   const best = pickRoute(destLat, destLng);
 
-  // Build waypoints: Harbor -> follow anchor route up to peel-off point -> destination
+  // Build waypoints: Harbor -> follow anchor route to peel-off -> destination
   const waypoints = [];
 
-  // Start at harbor
   waypoints.push({
     lat: HARBOR.lat, lng: HARBOR.lng,
     title: startName || HARBOR.name,
-    desc: 'Starting point',
-    depth: '', warnings: [],
+    desc: 'Starting point', depth: '', warnings: [],
   });
 
-  // Follow the anchor route up to and including the peel-off index
   for (let i = 0; i <= best.index; i++) {
     const pt = best.route[i];
-    // Skip if this point is very close to harbor (< 0.1 NM) to avoid duplication
     if (haversineNM(pt.lat, pt.lng, HARBOR.lat, HARBOR.lng) < 0.1) continue;
     waypoints.push({
       lat: pt.lat, lng: pt.lng,
       title: i === 0 ? 'Channel entrance' : `Channel pt ${i}`,
-      desc: `${best.name} route`,
-      depth: '', warnings: [],
+      desc: `${best.name} route`, depth: '', warnings: [],
     });
   }
 
-  // Add destination if it's not already the last point
+  // Handle peel-off to destination
   const lastWp = waypoints[waypoints.length - 1];
   const distToLast = haversineNM(lastWp.lat, lastWp.lng, destLat, destLng);
+
   if (distToLast > 0.05) {
+    // If peel-off still crosses land (rare after pickRoute optimization),
+    // insert safe intermediate waypoints to route around
+    if (best.crossesLand) {
+      const intermediates = findSafeIntermediates(
+        { lat: lastWp.lat, lng: lastWp.lng },
+        { lat: destLat, lng: destLng }
+      );
+      for (const wp of intermediates) {
+        waypoints.push({
+          lat: wp.lat, lng: wp.lng,
+          title: 'Water route', desc: 'Routing around land',
+          depth: '', warnings: [],
+        });
+      }
+    }
+
     waypoints.push({
       lat: destLat, lng: destLng,
-      title: destName || 'Destination',
-      desc: 'Destination',
+      title: destName || 'Destination', desc: 'Destination',
       depth: '', warnings: [],
     });
   } else {
-    // Destination is basically on the route — just rename the last point
     lastWp.title = destName || 'Destination';
     lastWp.desc = 'Destination';
   }
@@ -178,7 +323,7 @@ export function computeWaterRoute(startLat, startLng, startName, destLat, destLn
   return waypoints;
 }
 
-// Find nearest harbor (for compatibility with existing code)
+// Find nearest harbor (compatibility with existing code)
 export function findNearestHarbor(lat, lng) {
   return { id: 'matagorda_harbor', lat: HARBOR.lat, lng: HARBOR.lng, name: HARBOR.name };
 }
@@ -187,6 +332,9 @@ export function findNearestNode(lat, lng) {
   return { id: 'dest', lat, lng, dist: 0 };
 }
 
-export function isOnLand() {
+export function isOnLand(lat, lng) {
+  for (const polygon of LAND_POLYGONS) {
+    if (pointInPolygon(lat, lng, polygon)) return true;
+  }
   return false;
 }
