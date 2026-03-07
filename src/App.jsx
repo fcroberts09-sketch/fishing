@@ -1013,9 +1013,10 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                       const midIdx = Math.floor(lineCoords.length / 2);
                       const midPt = lineCoords[midIdx] || lineCoords[0];
                       return <React.Fragment key={'wl' + wl.id}>
-                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 3, opacity: 0.9 }} eventHandlers={{ click: () => { if (editMode) selectForEdit('wadeline', wl.id); } }}>
+                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 20, opacity: 0, stroke: true }} eventHandlers={{ click: () => { if (editMode) selectForEdit('wadeline', wl.id); } }}>
                           <Tooltip><b>{wl.label}</b><br/>{wl.castRange || 40}yd cast | {wl.bottomType || 'unknown'} bottom{wl.direction ? ' | Wade ' + wl.direction : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                         </Polyline>
+                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 3, opacity: 0.9 }} interactive={false} />
                         {mapLayers.castRange && castEnvelope.length > 2 && <Polygon positions={castEnvelope} pathOptions={{ color: wl.color, weight: 0.5, opacity: 0.3, fillColor: wl.color, fillOpacity: 0.1, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.left.length > 1 && <Polyline positions={cast.left} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.right.length > 1 && <Polyline positions={cast.right} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
@@ -1098,8 +1099,9 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
 
                     {/* Route */}
                     {showRoute && routeCoords.length > 0 && <>
-                      <Polyline positions={routeCoords} pathOptions={{ color: '#ffffff', weight: 5, opacity: 0.4 }} />
-                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 3, dashArray: '10 8', opacity: 0.8, className: 'route-dash-animate' }} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 20, opacity: 0, stroke: true }} eventHandlers={{ click: () => {} }} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#ffffff', weight: 5, opacity: 0.4 }} interactive={false} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 3, dashArray: '10 8', opacity: 0.8, className: 'route-dash-animate' }} interactive={false} />
                       {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 4, opacity: 0.9 }} />}
                       <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} draggable={editingRoute} eventHandlers={{ click: () => setRouteStep(0), dragend: editingRoute ? (e) => handleRouteWaypointDrag(0, e) : undefined }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />{editingRoute ? 'Drag to move' : 'Starting point'}</Tooltip></Marker>
                       {curRoute.slice(1).map((w, i) => {
