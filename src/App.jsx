@@ -1016,12 +1016,12 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                         <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 20, opacity: 0, stroke: true }} eventHandlers={{ click: () => { if (editMode) selectForEdit('wadeline', wl.id); } }}>
                           <Tooltip><b>{wl.label}</b><br/>{wl.castRange || 40}yd cast | {wl.bottomType || 'unknown'} bottom{wl.direction ? ' | Wade ' + wl.direction : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                         </Polyline>
-                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 3, opacity: 0.9 }} interactive={false} />
+                        <Polyline positions={lineCoords} pathOptions={{ color: '#fff', weight: 7, opacity: 0.5, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
+                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
                         {mapLayers.castRange && castEnvelope.length > 2 && <Polygon positions={castEnvelope} pathOptions={{ color: wl.color, weight: 0.5, opacity: 0.3, fillColor: wl.color, fillOpacity: 0.1, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.left.length > 1 && <Polyline positions={cast.left} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.right.length > 1 && <Polyline positions={cast.right} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
                         {mapLayers.castRange && midPt && <Marker position={midPt} icon={castDistLabel(wl.castRange || 40)} interactive={false} />}
-                        {wl.direction && midPt && <Marker position={midPt} icon={L.divIcon({ className: '', html: `<div style="background:${wl.color};color:#000;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;margin-top:14px;white-space:nowrap;pointer-events:none">\u2192 ${wl.direction}</div>`, iconSize: [30, 14], iconAnchor: [15, -4] })} interactive={false} />}
                         {editMode && wl.points.map((pt, pi) => (
                           <Marker key={'wlp' + wl.id + '-' + pi} position={itemToLatLng(pt, bayConfig)} icon={wadePointIcon()} draggable={true} eventHandlers={{ dragend: (e) => handleMarkerDragEnd('wade-pt', { lineId: wl.id, ptIndex: pi }, e) }}>
                             <Tooltip>Point {pi + 1}/{wl.points.length} - drag to move</Tooltip>
