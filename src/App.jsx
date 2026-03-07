@@ -125,15 +125,28 @@ export default function App() {
   // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
   const cond = useConditions(selBay?.id || 'matagorda');
   const weather = cond.weather || { temp: '--', windSpeed: 0, windDir: 0, windDirLabel: '--', windGusts: 0, conditions: 'Loading...', conditionIcon: '\u26C5' };
-  const tide = cond.tides ? {
-    status: cond.tides.tideState === 'incoming' ? 'Incoming' : cond.tides.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
-    next: cond.tides.nextTide ? `${cond.tides.nextTide.type === 'high' ? 'High' : 'Low'} at ${cond.tides.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--',
-    height: cond.tides.currentHeight,
-    strength: cond.tides.tideStrength,
-    movementFt: cond.tides.movementFt,
-    todayTides: cond.tides.todayTides || [],
-    tomorrowTides: cond.tides.tomorrowTides || [],
-  } : { status: 'Loading...', next: '--', todayTides: [], tomorrowTides: [] };
+  const tide = useMemo(() => {
+    if (!cond.tides) return { status: 'Loading...', next: '--', todayTides: [], tomorrowTides: [] };
+    const t = cond.tides;
+    const todayTides = t.todayTides || [];
+    const tomorrowTides = t.tomorrowTides || [];
+    // Compute relative tide level (0-100%) between day's low and high
+    const allHeights = todayTides.map(p => p.height);
+    const dayLow = allHeights.length ? Math.min(...allHeights) : 0;
+    const dayHigh = allHeights.length ? Math.max(...allHeights) : 1;
+    const range = dayHigh - dayLow || 0.1;
+    const levelPct = t.currentHeight != null ? Math.round(((t.currentHeight - dayLow) / range) * 100) : null;
+    return {
+      status: t.tideState === 'incoming' ? 'Incoming' : t.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
+      next: t.nextTide ? `${t.nextTide.type === 'high' ? 'High' : 'Low'} at ${t.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--',
+      height: t.currentHeight,
+      strength: t.tideStrength,
+      movementFt: t.movementFt,
+      levelPct,
+      todayTides,
+      tomorrowTides,
+    };
+  }, [cond.tides]);
   const [showConditions, setShowConditions] = useState(false);
   const [showReports, setShowReports] = useState(false);
 
@@ -697,22 +710,36 @@ export default function App() {
     setAiError(null);
     setAiResponse(null);
     const bayName = selBay?.name || 'Matagorda Bay';
-    const spotsInfo = filtered.map(s => `${s.name} (${s.type}, species: ${(s.species || []).join(', ')})`).join('; ');
-    const prompt = `You are a Texas coastal fishing guide AI. Give a fishing recommendation for ${bayName} based on these current conditions:
-- Wind: ${weather.windSpeed} mph from ${weather.windDirLabel || 'unknown'}
+    const allBaySpots = allSpots.filter(s => !s.type || s.type !== 'launch');
+    const spotsInfo = allBaySpots.map(s => `${s.name} (${s.type}, lat:${s.lat}, lng:${s.lng}, species: ${(s.species || []).join('/')}, bestTide: ${s.bestTide}, bestWind: ${s.bestWind}, bestTime: ${s.bestTime}, bestSeason: ${s.bestSeason}, lures: ${(s.lures || []).join('/')}, desc: ${s.desc})`).join('\n');
+    const prompt = `You are an expert Texas coastal fishing guide specializing in Matagorda Bay. Analyze the current conditions and ALL available fishing spots to recommend the TOP 2 spots to fish RIGHT NOW.
+
+CURRENT CONDITIONS:
+- Wind: ${weather.windSpeed} mph from ${weather.windDirLabel || 'unknown'} (gusts ${weather.windGusts} mph)
 - Temperature: ${weather.temp}°F, feels like ${weather.feelsLike}°F
-- Tide: ${tide.status || 'unknown'}
-- Today's tides: ${(tide.todayTides || []).map(t => `${t.type} at ${t.time} (${t.height}ft)`).join(', ') || 'unknown'}
-- Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+- Tide: ${tide.status || 'unknown'}, Level: ${tide.levelPct != null ? tide.levelPct + '%' : 'unknown'}
+- Next tide: ${tide.next || 'unknown'}
+- Tide swing: ${tide.movementFt || 'unknown'} ft
+- Moon: ${cond.moon.name} (${cond.moon.illumination}% illumination)
+- Date/Time: ${new Date().toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
 
-Available spots: ${spotsInfo || 'No spots loaded'}
+ALL FISHING SPOTS:
+${spotsInfo || 'No spots loaded'}
 
-Respond in this exact JSON format (no markdown, just raw JSON):
+IMPORTANT - LURE RECOMMENDATIONS:
+- For soft plastics, ALWAYS recommend specific Down South Lure Co. colors. Down South makes paddle tail soft plastics popular on the Texas coast.
+- Match color to water clarity: Dirty/stained water = darker colors (Midnight Magic, Black Gold, Plum Jelly, LSU). Clear water = natural colors (Opening Night, Saltwater Assassin, Cajun Cricket, Pearl). Moderate clarity = bright colors (Limetreuse, Electric Chicken, Pumpkinseed Chartreuse).
+- For topwater, recommend She Dog, Spook Jr, or Skitter Walk with color tips.
+- For gold spoon, recommend size (1/4 oz vs 1/2 oz) based on wind and depth.
+
+Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
 {
-  "topPick": { "name": "spot name", "reason": "1-2 sentences why this is the best choice right now" },
-  "lureStrategy": "2-3 sentences on what lures/bait to use and why",
-  "avoid": "1-2 sentences on what to avoid today and why",
-  "tide_tip": "1 sentence on how to use today's tide movement"
+  "spot1": { "name": "exact spot name from list", "reason": "2-3 sentences why this is the #1 pick given current wind, tide, and conditions" },
+  "spot2": { "name": "exact spot name from list", "reason": "2-3 sentences why this is the #2 pick" },
+  "lures": "3-4 sentences covering specific Down South Lure colors to throw, topwater recommendations, and gold spoon advice for today's conditions. Be specific on color names.",
+  "strategy": "2-3 sentences on how to work the tide and wind today. When to fish where, how to position relative to wind.",
+  "avoid": "1-2 sentences on what to avoid and why",
+  "tide_tip": "1 sentence on timing your session around the tide schedule"
 }`;
 
     try {
@@ -726,7 +753,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
+          max_tokens: 800,
           messages: [{ role: 'user', content: prompt }],
         }),
       });
@@ -799,9 +826,9 @@ Respond in this exact JSON format (no markdown, just raw JSON):
       {/* WEATHER BAR - LIVE DATA */}
       <div style={{ background: `${C.card}99`, borderBottom: `1px solid ${C.bdr}`, padding: isMobile ? '4px 8px' : '7px 20px', overflow: 'hidden' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, fontSize: isMobile ? 11 : 12, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}\u00B0F</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}{'°F'}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.windSpeed} mph {weather.windDirLabel}{!isMobile && ` (gusts ${weather.windGusts})`}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.height != null ? ` ${tide.height}ft` : ''}{tide.movementFt ? ` (${tide.movementFt}ft move)` : ''}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.levelPct != null ? ` ${tide.levelPct}%` : ''}</span>
           <span style={{ flexShrink: 0 }}>{cond.moon.icon} {!isMobile ? cond.moon.name : ''}</span>
           {!isMobile && <span style={{ color: C.mid }}>{weather.conditionIcon} {weather.conditions}</span>}
           <button onClick={() => setShowConditions(true)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{cond.loading ? '\u23F3' : '\uD83C\uDF0A'} {isMobile ? '' : 'Conditions'}</button>
@@ -1344,7 +1371,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                       </div>
                       {/* Live conditions mini-bar */}
                       <div style={{ background: `${tide.status === 'Incoming' ? C.cyan : C.amber}08`, borderRadius: 8, padding: '8px 10px', border: `1px solid ${tide.status === 'Incoming' ? C.cyan : C.amber}20`, marginBottom: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, fontSize: 10 }}>
-                        <div><div style={{ color: C.dim, fontSize: 8 }}>NOW</div><div style={{ fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : C.amber }}>{tide.status} {tide.height != null ? `${tide.height}ft` : ''}</div></div>
+                        <div><div style={{ color: C.dim, fontSize: 8 }}>NOW</div><div style={{ fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : C.amber }}>{tide.status}{tide.levelPct != null ? ` ${tide.levelPct}%` : ''}</div></div>
                         <div><div style={{ color: C.dim, fontSize: 8 }}>WIND</div><div style={{ fontWeight: 600 }}>{weather.windSpeed} {weather.windDirLabel}</div></div>
                         <div><div style={{ color: C.dim, fontSize: 8 }}>MOON</div><div style={{ fontWeight: 600 }}>{cond.moon.icon} {cond.moonRating.rating >= 4 ? '\u2B50' : ''}</div></div>
                       </div>
@@ -1477,8 +1504,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
                 <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Level</div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{tide.height != null ? `${tide.height} ft` : '--'}</div>
-                <div style={{ fontSize: 8, color: C.dim }}>MLLW datum</div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{tide.levelPct != null ? `${tide.levelPct}%` : '--'}</div>
+                <div style={{ fontSize: 8, color: C.dim }}>{tide.levelPct != null ? (tide.levelPct > 70 ? 'Near High' : tide.levelPct < 30 ? 'Near Low' : 'Mid-Tide') : ''}</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
                 <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Swing</div>
@@ -1503,7 +1530,6 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                   <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 12, flex: '1 1 auto', textAlign: 'center' }}>
                     <div style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber, fontSize: 14 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
                     <div style={{ fontWeight: 700, fontSize: 16 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
-                    <div style={{ color: C.mid, fontSize: 11 }}>{p.height.toFixed(1)} ft MLLW</div>
                   </div>
                 ))}
               </div>
@@ -1515,8 +1541,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {tide.tomorrowTides.map((p, i) => (
                   <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}10` : `${C.amber}10`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}20`, fontSize: 11, flex: '1 1 auto', textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'} {p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
-                    <div style={{ color: C.mid, fontSize: 10 }}>{p.height.toFixed(1)} ft MLLW</div>
+                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
                   </div>
                 ))}
               </div>
@@ -1525,8 +1551,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
             {/* Dual-source verification */}
             {cond.tideVerification && <div style={{ background: C.card, borderRadius: 6, padding: 8, border: `1px solid ${C.bdr}`, fontSize: 10, color: C.dim }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Source verification: <span style={{ color: cond.tideVerification.verified ? C.green : C.amber }}>{cond.tideVerification.confidence}</span></div>
-              {cond.tideVerification.station1 && <div>Station 1: {cond.tideVerification.station1.name} ({cond.tideVerification.station1.state}{cond.tideVerification.station1.height != null ? `, ${cond.tideVerification.station1.height}ft` : ''})</div>}
-              {cond.tideVerification.station2 && <div>Station 2: {cond.tideVerification.station2.name} ({cond.tideVerification.station2.state}{cond.tideVerification.station2.height != null ? `, ${cond.tideVerification.station2.height}ft` : ''})</div>}
+              {cond.tideVerification.station1 && <div>Station 1: {cond.tideVerification.station1.name} ({cond.tideVerification.station1.state})</div>}
+              {cond.tideVerification.station2 && <div>Station 2: {cond.tideVerification.station2.name} ({cond.tideVerification.station2.state})</div>}
             </div>}
           </div>
 
@@ -1544,7 +1570,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Wave Estimate</div>
               {(() => { const wm = generateWaveMarkers(weather.windDir || 0, weather.windSpeed || 0, selBay?.id); const maxH = Math.max(...wm.map(w => w.height)); return <>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{maxH < 0.3 ? 'Flat' : maxH.toFixed(1) + "' waves"} {maxH < 0.3 ? '\u2705' : maxH < 1.0 ? '\u{1F7E1}' : '\u{1F534}'}</div>
-                <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>{weather.windSpeed || 0} mph wind from {weather.windDir || 0}\u00B0 \u2022 {maxH < 0.5 ? 'Great wading' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough - boat only' : 'Dangerous'}</div>
+                <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>{weather.windSpeed || 0} mph wind from {weather.windDir || 0}{'\u00B0'} {'\u2022'} {maxH < 0.5 ? 'Great wading' : maxH < 1.0 ? 'Moderate chop' : maxH < 1.5 ? 'Rough - boat only' : 'Dangerous'}</div>
               </>; })()}
             </div>}
           </div>
@@ -1671,10 +1697,32 @@ Respond in this exact JSON format (no markdown, just raw JSON):
           {aiLoading && <div style={{ textAlign: 'center', padding: '30px 0' }}><div style={{ fontSize: 13, color: C.mid }}>Analyzing conditions...</div><div style={{ marginTop: 10, fontSize: 20 }}>{'\u23F3'}</div></div>}
           {aiError && <div style={{ textAlign: 'center', padding: '20px 0' }}><div style={{ fontSize: 13, color: C.red, marginBottom: 12 }}>{aiError}</div><Btn small isMobile={isMobile} onClick={fetchAIRecommendation}>Retry</Btn></div>}
           {aiResponse && <>
-            <div style={{ background: `${C.cyan}08`, border: `1px solid ${C.cyan}20`, borderRadius: 12, padding: 14, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.cyan, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFAF'} Top Pick</div><div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{aiResponse.topPick?.name}</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{aiResponse.topPick?.reason}</p></div>
-            <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.teal, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFA3'} Lure Strategy</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.lureStrategy}</p></div>
-            <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.amber, fontWeight: 700, marginBottom: 6 }}>{'\u26A0\uFE0F'} Avoid Today</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.avoid}</p></div>
-            {aiResponse.tide_tip && <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}20`, borderRadius: 10, padding: 12, marginBottom: 14 }}><div style={{ fontSize: 10, textTransform: 'uppercase', color: C.blue, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDF0A'} Tide Tip</div><p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.tide_tip}</p></div>}
+            <div style={{ background: `${C.cyan}08`, border: `1px solid ${C.cyan}20`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.cyan, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFAF'} #1 Spot</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{aiResponse.spot1?.name}</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{aiResponse.spot1?.reason}</p>
+            </div>
+            <div style={{ background: `${C.teal}08`, border: `1px solid ${C.teal}20`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.teal, fontWeight: 700, marginBottom: 6 }}>{'\uD83E\uDD48'} #2 Spot</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{aiResponse.spot2?.name}</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{aiResponse.spot2?.reason}</p>
+            </div>
+            <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.green, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDFA3'} Lures & Down South Colors</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.6, margin: 0 }}>{aiResponse.lures}</p>
+            </div>
+            <div style={{ background: C.card2, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.cyan, fontWeight: 700, marginBottom: 6 }}>{'\uD83C\uDF0A'} Strategy</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.strategy}</p>
+            </div>
+            {aiResponse.tide_tip && <div style={{ background: `${C.blue}08`, border: `1px solid ${C.blue}20`, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.blue, fontWeight: 700, marginBottom: 6 }}>{'\u23F1\uFE0F'} Tide Timing</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.tide_tip}</p>
+            </div>}
+            <div style={{ background: `${C.amber}08`, border: `1px solid ${C.amber}20`, borderRadius: 10, padding: 12, marginBottom: 14 }}>
+              <div style={{ fontSize: 10, textTransform: 'uppercase', color: C.amber, fontWeight: 700, marginBottom: 6 }}>{'\u26A0\uFE0F'} Avoid</div>
+              <p style={{ fontSize: 12, color: C.mid, lineHeight: 1.5, margin: 0 }}>{aiResponse.avoid}</p>
+            </div>
             <Btn small isMobile={isMobile} onClick={fetchAIRecommendation} style={{ width: '100%' }}><SparkI s={12} /> Refresh</Btn>
           </>}
         </div>}
