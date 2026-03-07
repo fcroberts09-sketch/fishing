@@ -84,20 +84,11 @@ const WEST_BAY_CUT_ROUTE = [
   { lat: 28.606724, lng: -96.086251 },
 ];
 
-// Route south from harbor into open Matagorda Bay
-// Goes east through harbor channel past the marsh peninsula, then turns south
-// through open water. Must stay east of the marsh (lng < -95.930) until south of it.
-const SOUTH_BAY_ROUTE = [
-  { lat: 28.693098, lng: -95.956347 },  // channel exit
-  { lat: 28.691257, lng: -95.954186 },  // heading east through channel
-  { lat: 28.701561, lng: -95.932550 },  // East Bay channel (verified open water)
-  { lat: 28.709718, lng: -95.912993 },  // continue east past marsh peninsula
-  { lat: 28.698000, lng: -95.913000 },  // turn south in open water east of marsh
-  { lat: 28.680000, lng: -95.916000 },  // open water, well east of marsh
-  { lat: 28.660467, lng: -95.917000 },  // open water south of marsh
-  { lat: 28.646207, lng: -95.922664 },  // Deep Scatter Shell area
-  { lat: 28.634135, lng: -95.925605 },  // Fishing Drains area
-];
+// NO separate South Bay route — all south/main bay spots are accessed
+// via the ICW channel (going SW from harbor then peeling off east through
+// channels in the marsh) or via the East Bay route (going east then south).
+// The 3 routes above (East Bay, ICW, Mad Island Cut) are the ONLY water
+// paths from Matagorda Harbor.
 
 // ─── BAY BOUNDARIES ───
 // Used to determine which bay a destination is in for route enforcement.
@@ -129,17 +120,17 @@ function isInEastBay(lat, lng) {
 // Add more polygons as needed for other areas.
 
 const LAND_POLYGONS = [
-  // Main marsh peninsula between ICW channel and open East Matagorda Bay.
-  // The ICW runs SW from the harbor along the west side of this marsh.
-  // Open bay water is to the east/south. The Colorado River cuts through.
-  // Eastern edge extends to ~-95.920 based on satellite imagery.
-  // Routes must go east past the peninsula (via harbor channel) then turn south.
+  // Core marsh area directly south of harbor. This polygon blocks routes
+  // that try to go straight south from the harbor through the marsh.
+  // It does NOT cover the full marsh extent — fishing spots within the
+  // marsh (e.g. Fishing Drains, Lake Outflow) are accessed via the ICW
+  // channel on the west side, so we keep this polygon narrow to avoid
+  // blocking legitimate ICW peel-offs.
   [
-    { lat: 28.690, lng: -95.965 },
-    { lat: 28.690, lng: -95.920 },
-    { lat: 28.650, lng: -95.920 },
-    { lat: 28.630, lng: -95.935 },
-    { lat: 28.625, lng: -95.965 },
+    { lat: 28.690, lng: -95.955 },
+    { lat: 28.690, lng: -95.930 },
+    { lat: 28.650, lng: -95.930 },
+    { lat: 28.650, lng: -95.955 },
   ],
 ];
 
@@ -194,7 +185,6 @@ const SAFE_WATER_POINTS = [
   ...EAST_BAY_ROUTE,
   ...WEST_BAY_ICW_ROUTE,
   ...WEST_BAY_CUT_ROUTE,
-  ...SOUTH_BAY_ROUTE,
 ];
 
 // Find intermediate waypoints to route around land between two points
@@ -239,17 +229,26 @@ function findSafeIntermediates(p1, p2) {
 
 // ─── ROUTING LOGIC ───
 
+// Find the best peel-off point on a route for a destination.
+// Prefers the closest point that does NOT cross land.
+// Falls back to the closest point overall if all cross land.
 function findClosestPointOnRoute(route, destLat, destLng) {
-  let bestIdx = 0;
-  let bestDist = Infinity;
+  let bestSafeIdx = -1, bestSafeDist = Infinity;
+  let bestAnyIdx = 0, bestAnyDist = Infinity;
+  const dest = { lat: destLat, lng: destLng };
+
   for (let i = 0; i < route.length; i++) {
     const d = haversineNM(route[i].lat, route[i].lng, destLat, destLng);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
+    if (d < bestAnyDist) { bestAnyDist = d; bestAnyIdx = i; }
+    if (!segmentCrossesLand(route[i], dest) && d < bestSafeDist) {
+      bestSafeDist = d; bestSafeIdx = i;
     }
   }
-  return { index: bestIdx, dist: bestDist };
+
+  if (bestSafeIdx >= 0) {
+    return { index: bestSafeIdx, dist: bestSafeDist, crossesLand: false };
+  }
+  return { index: bestAnyIdx, dist: bestAnyDist, crossesLand: true };
 }
 
 // Pick the best anchor route and peel-off point for a destination.
@@ -258,38 +257,32 @@ function findClosestPointOnRoute(route, destLat, destLng) {
 function pickRoute(destLat, destLng, preferredWestRoute) {
   // East Bay destinations MUST use the East Bay route through the entrance
   if (isInEastBay(destLat, destLng)) {
-    const { index } = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
+    const { index, crossesLand } = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
     const enforced = Math.max(index, EAST_BAY_ENTRANCE_IDX);
     const pt = EAST_BAY_ROUTE[enforced];
     const dist = haversineNM(pt.lat, pt.lng, destLat, destLng);
-    const crossesLand = segmentCrossesLand(pt, { lat: destLat, lng: destLng });
-    return { route: EAST_BAY_ROUTE, name: 'East Bay', index: enforced, dist, crossesLand };
+    const peelCrossesLand = segmentCrossesLand(pt, { lat: destLat, lng: destLng });
+    return { route: EAST_BAY_ROUTE, name: 'East Bay', index: enforced, dist, crossesLand: peelCrossesLand };
   }
 
   // West Bay: honor user's route preference if destination is in West Bay
   if (preferredWestRoute && isWestBayDestination(destLat, destLng)) {
     const chosen = preferredWestRoute === 'cut' ? WEST_BAY_CUT_ROUTE : WEST_BAY_ICW_ROUTE;
     const chosenName = preferredWestRoute === 'cut' ? 'Mad Island Cut' : 'ICW Channel';
-    const { index, dist } = findClosestPointOnRoute(chosen, destLat, destLng);
-    const crossesLand = segmentCrossesLand(chosen[index], { lat: destLat, lng: destLng });
-    return { route: chosen, name: chosenName, index, dist, crossesLand };
+    const result = findClosestPointOnRoute(chosen, destLat, destLng);
+    return { route: chosen, name: chosenName, index: result.index, dist: result.dist, crossesLand: result.crossesLand };
   }
 
   const routes = [
     { route: EAST_BAY_ROUTE, name: 'East Bay' },
     { route: WEST_BAY_ICW_ROUTE, name: 'ICW Channel' },
     { route: WEST_BAY_CUT_ROUTE, name: 'Mad Island Cut' },
-    { route: SOUTH_BAY_ROUTE, name: 'South Bay' },
   ];
 
   const candidates = [];
   for (const r of routes) {
-    const { index, dist } = findClosestPointOnRoute(r.route, destLat, destLng);
-    const crossesLand = segmentCrossesLand(
-      r.route[index],
-      { lat: destLat, lng: destLng }
-    );
-    candidates.push({ route: r.route, name: r.name, index, dist, crossesLand });
+    const result = findClosestPointOnRoute(r.route, destLat, destLng);
+    candidates.push({ route: r.route, name: r.name, index: result.index, dist: result.dist, crossesLand: result.crossesLand });
   }
 
   // Prefer no land crossing, then shortest peel-off distance
