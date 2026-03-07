@@ -1,20 +1,29 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 // ─── NOAA TIDE STATIONS ───
-// Use two stations per bay for cross-verification
-const TIDE_STATIONS = {
-  matagorda: [
-    { id: '8773037', name: 'Matagorda City' },
-    { id: '8773767', name: 'Matagorda Bay Entrance' },
-  ],
-  west_matagorda: [
-    { id: '8773037', name: 'Matagorda City' },
-    { id: '8773767', name: 'Matagorda Bay Entrance' },
-  ],
-  san_antonio: [
-    { id: '8773259', name: 'Port Lavaca' },
-    { id: '8773701', name: 'Port O\'Connor' },
-  ],
+// Each bay gets a PREDICTION station (for hi/lo schedule) and an OBSERVATION station (for real-time water level).
+// Prediction stations at passes/entrances have larger tidal ranges than inside-bay stations.
+// Observation stations give actual measured water levels (includes wind effects).
+const BAY_STATIONS = {
+  matagorda: {
+    // Freeport USCG Station - nearest reference station with meaningful tidal range
+    prediction: { id: '8772471', name: 'Freeport, USCG Station' },
+    // Matagorda City - actual measured levels inside the bay
+    observation: { id: '8773037', name: 'Matagorda City' },
+    // Backup prediction from entrance
+    prediction2: { id: '8773767', name: 'Matagorda Bay Entrance' },
+  },
+  west_matagorda: {
+    prediction: { id: '8772471', name: 'Freeport, USCG Station' },
+    observation: { id: '8773037', name: 'Matagorda City' },
+    prediction2: { id: '8773767', name: 'Matagorda Bay Entrance' },
+  },
+  san_antonio: {
+    // Port O'Connor - nearest prediction station with decent range
+    prediction: { id: '8773701', name: "Port O'Connor" },
+    observation: { id: '8773259', name: 'Port Lavaca' },
+    prediction2: { id: '8773259', name: 'Port Lavaca' },
+  },
 };
 
 // ─── MOON PHASE (pure math, no API) ───
@@ -45,17 +54,20 @@ export function moonFishingRating(phase) {
   return { rating: ratings[phase], label: ['Excellent', 'Poor', 'Poor', 'Good', 'Good', 'Excellent'][ratings[phase] - 1] || 'Fair' };
 }
 
-// ─── NOAA TIDES FETCH ───
-async function fetchTides(stationId) {
+// ─── DATE FORMATTING ───
+const fmtDate = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+
+// ─── NOAA TIDE PREDICTIONS FETCH (7 days, hi/lo + hourly) ───
+async function fetchTidePredictions(stationId, days = 7) {
   const now = new Date();
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const end = new Date(start);
-  end.setDate(end.getDate() + 2);
-  const fmt = (d) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  end.setDate(end.getDate() + days);
 
-  const hiloUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${fmt(start)}&end_date=${fmt(end)}&station=${stationId}&product=predictions&datum=MLLW&interval=hilo&units=english&time_zone=lst_ldt&application=TexasTides&format=json`;
-  const hourlyUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${fmt(start)}&end_date=${fmt(end)}&station=${stationId}&product=predictions&datum=MLLW&interval=h&units=english&time_zone=lst_ldt&application=TexasTides&format=json`;
+  const baseParams = `station=${stationId}&datum=MLLW&units=english&time_zone=lst_ldt&application=TexasTides&format=json`;
+  const hiloUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${fmtDate(start)}&end_date=${fmtDate(end)}&${baseParams}&product=predictions&interval=hilo`;
+  const hourlyUrl = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${fmtDate(start)}&end_date=${fmtDate(end)}&${baseParams}&product=predictions&interval=h`;
 
   try {
     const [hiloRes, hourlyRes] = await Promise.all([
@@ -75,73 +87,149 @@ async function fetchTides(stationId) {
       height: parseFloat(p.v),
     }));
 
-    const nowTime = now.getTime();
-    let currentHeight = null;
-    let tideState = 'unknown';
-    let nextTide = null;
-    let prevTide = null;
-
-    // Interpolate current height from hourly data
-    for (let i = 0; i < hourly.length - 1; i++) {
-      if (hourly[i].time.getTime() <= nowTime && hourly[i + 1].time.getTime() > nowTime) {
-        const frac = (nowTime - hourly[i].time.getTime()) / (hourly[i + 1].time.getTime() - hourly[i].time.getTime());
-        currentHeight = hourly[i].height + frac * (hourly[i + 1].height - hourly[i].height);
-        break;
-      }
-    }
-
-    // Find next and previous hi/lo
-    for (const p of predictions) {
-      if (p.time.getTime() > nowTime) {
-        if (!nextTide) nextTide = p;
-      } else {
-        prevTide = p;
-      }
-    }
-
-    if (prevTide && nextTide) {
-      tideState = nextTide.type === 'high' ? 'incoming' : 'outgoing';
-    }
-
-    // Tide strength (0-1)
-    let tideStrength = 0.5;
-    if (prevTide && nextTide) {
-      const total = nextTide.time.getTime() - prevTide.time.getTime();
-      const elapsed = nowTime - prevTide.time.getTime();
-      const progress = elapsed / total;
-      tideStrength = Math.sin(progress * Math.PI);
-    }
-
-    // Calculate movement amount (difference between prev and next)
-    let movementFt = null;
-    if (prevTide && nextTide) {
-      movementFt = Math.abs(nextTide.height - prevTide.height);
-    }
-
-    // Get today's and tomorrow's tide schedule
-    const today = new Date().toDateString();
-    const tomorrow = new Date(Date.now() + 86400000).toDateString();
-    const todayTides = predictions.filter((p) => p.time.toDateString() === today);
-    const tomorrowTides = predictions.filter((p) => p.time.toDateString() === tomorrow);
-
-    return {
-      predictions,
-      hourly,
-      currentHeight: currentHeight ? Math.round(currentHeight * 100) / 100 : null,
-      tideState,
-      tideStrength: Math.round(tideStrength * 100) / 100,
-      nextTide,
-      prevTide,
-      movementFt: movementFt ? Math.round(movementFt * 10) / 10 : null,
-      todayTides,
-      tomorrowTides,
-      stationId,
-      fetchedAt: now,
-    };
+    return { predictions, hourly, stationId, fetchedAt: now };
   } catch (err) {
-    console.warn('Tide fetch failed:', err);
+    console.warn('Tide predictions fetch failed:', err);
     return null;
   }
+}
+
+// ─── NOAA REAL-TIME WATER LEVEL OBSERVATIONS ───
+async function fetchWaterLevel(stationId) {
+  // Get last 24 hours of actual measured water levels
+  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?date=latest&station=${stationId}&product=water_level&datum=MLLW&units=english&time_zone=lst_ldt&application=TexasTides&format=json`;
+
+  try {
+    const res = await fetch(url).then((r) => r.json());
+    const data = res.data || [];
+    if (data.length > 0) {
+      const latest = data[data.length - 1];
+      return {
+        height: parseFloat(latest.v),
+        time: new Date(latest.t),
+        stationId,
+        quality: latest.q,
+        fetchedAt: new Date(),
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn('Water level fetch failed (station may not have real-time data):', err);
+    return null;
+  }
+}
+
+// ─── PROCESS TIDE DATA (compute state, next/prev, schedule by day) ───
+function processTideData(predData, observedLevel) {
+  if (!predData) return null;
+  const { predictions, hourly } = predData;
+  const now = new Date();
+  const nowTime = now.getTime();
+
+  // Interpolate current predicted height from hourly data
+  let currentPredicted = null;
+  for (let i = 0; i < hourly.length - 1; i++) {
+    if (hourly[i].time.getTime() <= nowTime && hourly[i + 1].time.getTime() > nowTime) {
+      const frac = (nowTime - hourly[i].time.getTime()) / (hourly[i + 1].time.getTime() - hourly[i].time.getTime());
+      currentPredicted = hourly[i].height + frac * (hourly[i + 1].height - hourly[i].height);
+      break;
+    }
+  }
+
+  // Use observed level if available, otherwise predicted
+  const currentHeight = observedLevel?.height ?? currentPredicted;
+
+  // Find next and previous hi/lo
+  let nextTide = null, prevTide = null;
+  for (const p of predictions) {
+    if (p.time.getTime() > nowTime) {
+      if (!nextTide) nextTide = p;
+    } else {
+      prevTide = p;
+    }
+  }
+
+  let tideState = 'unknown';
+  if (prevTide && nextTide) {
+    tideState = nextTide.type === 'high' ? 'incoming' : 'outgoing';
+  }
+
+  // Tide strength (0-1) based on sinusoidal progress between prev and next
+  let tideStrength = 0.5;
+  if (prevTide && nextTide) {
+    const total = nextTide.time.getTime() - prevTide.time.getTime();
+    const elapsed = nowTime - prevTide.time.getTime();
+    const progress = elapsed / total;
+    tideStrength = Math.sin(progress * Math.PI);
+  }
+
+  // Group predictions by day
+  const dayMap = {};
+  for (const p of predictions) {
+    const dayKey = p.time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const dateKey = p.time.toDateString();
+    if (!dayMap[dateKey]) dayMap[dateKey] = { label: dayKey, date: new Date(p.time), tides: [] };
+    dayMap[dateKey].tides.push(p);
+  }
+  const dailyTides = Object.values(dayMap).sort((a, b) => a.date - b.date);
+
+  // Today and tomorrow shortcuts
+  const today = now.toDateString();
+  const tomorrow = new Date(Date.now() + 86400000).toDateString();
+  const todayTides = dayMap[today]?.tides || [];
+  const tomorrowTides = dayMap[tomorrow]?.tides || [];
+
+  return {
+    predictions,
+    hourly,
+    currentHeight: currentHeight != null ? Math.round(currentHeight * 100) / 100 : null,
+    currentPredicted: currentPredicted != null ? Math.round(currentPredicted * 100) / 100 : null,
+    observedHeight: observedLevel?.height ?? null,
+    observedTime: observedLevel?.time ?? null,
+    tideState,
+    tideStrength: Math.round(tideStrength * 100) / 100,
+    nextTide,
+    prevTide,
+    todayTides,
+    tomorrowTides,
+    dailyTides,
+    stationId: predData.stationId,
+    fetchedAt: predData.fetchedAt,
+  };
+}
+
+// ─── LOCALSTORAGE TIDE CACHE ───
+const TIDE_CACHE_KEY = 'tt_tide_cache_v2';
+const TIDE_CACHE_MAX_AGE = 12 * 60 * 60 * 1000; // 12 hours for predictions
+const OBS_CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes for observations
+
+function getCachedTides(bayId) {
+  try {
+    const raw = localStorage.getItem(TIDE_CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    const entry = cache[bayId];
+    if (!entry) return null;
+    const age = Date.now() - entry.fetchedAt;
+    if (age > TIDE_CACHE_MAX_AGE) return null;
+    // Rehydrate dates
+    if (entry.predictions) {
+      entry.predictions = entry.predictions.map(p => ({ ...p, time: new Date(p.time) }));
+    }
+    if (entry.hourly) {
+      entry.hourly = entry.hourly.map(p => ({ ...p, time: new Date(p.time) }));
+    }
+    return entry;
+  } catch { return null; }
+}
+
+function setCachedTides(bayId, data) {
+  try {
+    const raw = localStorage.getItem(TIDE_CACHE_KEY);
+    const cache = raw ? JSON.parse(raw) : {};
+    cache[bayId] = { ...data, fetchedAt: Date.now() };
+    localStorage.setItem(TIDE_CACHE_KEY, JSON.stringify(cache));
+  } catch { /* quota exceeded, ignore */ }
 }
 
 // ─── OPEN-METEO WEATHER FETCH ───
@@ -255,12 +343,13 @@ async function fetchFishingReports(bayId) {
 // ─── MAIN HOOK ───
 export function useConditions(bayId) {
   const [tides, setTides] = useState(null);
-  const [tides2, setTides2] = useState(null); // second station for verification
+  const [observedLevel, setObservedLevel] = useState(null);
   const [weather, setWeather] = useState(null);
   const [marine, setMarine] = useState(null);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState(null);
+  const [tideSource, setTideSource] = useState(null);
   const intervalRef = useRef(null);
 
   const bayCoords = {
@@ -273,49 +362,81 @@ export function useConditions(bayId) {
     if (!bayId) return;
     setLoading(true);
     const coords = bayCoords[bayId] || bayCoords.matagorda;
-    const stations = TIDE_STATIONS[bayId] || TIDE_STATIONS.matagorda;
+    const stations = BAY_STATIONS[bayId] || BAY_STATIONS.matagorda;
 
-    const [tideData1, tideData2, weatherData, marineData, reportData] = await Promise.all([
-      fetchTides(stations[0].id),
-      fetchTides(stations[1].id),
+    // Check cache for tide predictions
+    let predData = getCachedTides(bayId);
+    let tidesFresh = false;
+
+    if (!predData) {
+      // Fetch fresh 7-day predictions from primary station
+      predData = await fetchTidePredictions(stations.prediction.id, 7);
+      if (predData) {
+        setCachedTides(bayId, predData);
+        tidesFresh = true;
+      }
+    } else {
+      // Rehydrate cached data
+      tidesFresh = false;
+    }
+
+    // Always fetch real-time observation (lightweight, single data point)
+    const obsData = await fetchWaterLevel(stations.observation.id).catch(() => null);
+
+    // Fetch weather, marine, reports in parallel
+    const [weatherData, marineData, reportData] = await Promise.all([
       fetchWeather(coords.lat, coords.lng),
       fetchMarine(coords.lat, coords.lng),
       fetchFishingReports(bayId),
     ]);
 
-    setTides(tideData1);
-    setTides2(tideData2);
+    if (predData) {
+      setTides(predData);
+    }
+    setObservedLevel(obsData);
     setWeather(weatherData);
     setMarine(marineData);
     setReports(reportData);
+    setTideSource({
+      prediction: stations.prediction.name,
+      predictionId: stations.prediction.id,
+      observation: stations.observation.name,
+      observationId: stations.observation.id,
+      hasObserved: !!obsData,
+    });
     setLastFetch(new Date());
     setLoading(false);
   }, [bayId]);
 
   useEffect(() => {
     fetchAll();
-    intervalRef.current = setInterval(fetchAll, 15 * 60 * 1000);
+    // Refresh every 30 min (mainly for observed water level + weather)
+    intervalRef.current = setInterval(fetchAll, 30 * 60 * 1000);
     return () => clearInterval(intervalRef.current);
   }, [fetchAll]);
 
   const moon = getMoonPhase();
   const moonRating = moonFishingRating(moon.phase);
 
-  // Cross-verify tide data: if both stations agree on state, high confidence
+  // Process tide data with observed levels
+  const processedTides = useMemo(() => {
+    return processTideData(tides, observedLevel);
+  }, [tides, observedLevel]);
+
+  // Verification info
   const tideVerification = useMemo(() => {
-    if (!tides || !tides2) return { verified: false, confidence: 'single source' };
-    const agree = tides.tideState === tides2.tideState;
+    const stations = BAY_STATIONS[bayId] || BAY_STATIONS.matagorda;
     return {
-      verified: agree,
-      confidence: agree ? 'verified (2 stations)' : 'stations disagree',
-      station1: { name: (TIDE_STATIONS[bayId] || TIDE_STATIONS.matagorda)[0].name, state: tides.tideState, height: tides.currentHeight },
-      station2: { name: (TIDE_STATIONS[bayId] || TIDE_STATIONS.matagorda)[1].name, state: tides2.tideState, height: tides2.currentHeight },
+      verified: !!observedLevel,
+      confidence: observedLevel ? 'live observation + predictions' : 'predictions only',
+      predStation: { name: stations.prediction.name, id: stations.prediction.id },
+      obsStation: { name: stations.observation.name, id: stations.observation.id, hasData: !!observedLevel },
     };
-  }, [tides, tides2, bayId]);
+  }, [observedLevel, bayId]);
 
   return {
-    tides,
-    tides2,
+    tides: processedTides,
+    tideSource,
     tideVerification,
     weather,
     marine,

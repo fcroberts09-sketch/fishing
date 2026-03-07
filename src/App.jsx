@@ -126,11 +126,12 @@ export default function App() {
   const cond = useConditions(selBay?.id || 'matagorda');
   const weather = cond.weather || { temp: '--', windSpeed: 0, windDir: 0, windDirLabel: '--', windGusts: 0, conditions: 'Loading...', conditionIcon: '\u26C5' };
   const tide = useMemo(() => {
-    if (!cond.tides) return { status: 'Loading...', next: '--', todayTides: [], tomorrowTides: [] };
+    if (!cond.tides) return { status: 'Loading...', next: '--', todayTides: [], tomorrowTides: [], dailyTides: [] };
     const t = cond.tides;
     const todayTides = t.todayTides || [];
     const tomorrowTides = t.tomorrowTides || [];
-    // Compute swing = difference between day's high and low tide heights
+    const dailyTides = t.dailyTides || [];
+    // Compute swing = difference between today's high and low tide heights
     const highs = todayTides.filter(p => p.type === 'high').map(p => p.height);
     const lows = todayTides.filter(p => p.type === 'low').map(p => p.height);
     const dayHigh = highs.length ? Math.max(...highs) : null;
@@ -140,10 +141,13 @@ export default function App() {
       status: t.tideState === 'incoming' ? 'Incoming' : t.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
       next: t.nextTide ? `${t.nextTide.type === 'high' ? 'High' : 'Low'} at ${t.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--',
       height: t.currentHeight,
+      observedHeight: t.observedHeight,
+      observedTime: t.observedTime,
       strength: t.tideStrength,
       swing,
       todayTides,
       tomorrowTides,
+      dailyTides,
     };
   }, [cond.tides]);
   const [showConditions, setShowConditions] = useState(false);
@@ -1492,7 +1496,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <WaveI s={18} c={tide.status === 'Incoming' ? C.cyan : C.amber} />
               <span style={{ fontWeight: 700, fontSize: 15 }}>Tides</span>
-              {cond.tideVerification?.verified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: `${C.green}20`, color: C.green, fontWeight: 600 }}>VERIFIED</span>}
+              {cond.tideVerification?.verified && <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: `${C.green}20`, color: C.green, fontWeight: 600 }}>LIVE</span>}
               <span style={{ fontSize: 10, color: C.dim, marginLeft: 'auto' }}>NOAA</span>
             </div>
 
@@ -1503,7 +1507,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                 <div style={{ fontSize: 16, fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}>{tide.status}</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
-                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Level</div>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Level {tide.observedHeight != null ? '(live)' : ''}</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: tide.height > 0 ? C.cyan : tide.height < 0 ? C.amber : C.mid }}>{tide.height != null ? `${tide.height > 0 ? '+' : ''}${tide.height.toFixed(1)} ft` : '--'}</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
@@ -1521,39 +1525,27 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
               <div style={{ height: 6, background: C.bdr, borderRadius: 3 }}><div style={{ height: '100%', borderRadius: 3, background: tide.status === 'Incoming' ? C.cyan : C.amber, width: `${(tide.strength || 0) * 100}%`, transition: 'width 1s' }} /></div>
             </div>
 
-            {/* Today's tide schedule */}
-            {tide.todayTides.length > 0 && <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Today</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {tide.todayTides.map((p, i) => (
-                  <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 12, flex: '1 1 auto', textAlign: 'center' }}>
-                    <div style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber, fontSize: 14 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
-                    <div style={{ color: C.mid, fontSize: 12, fontWeight: 600 }}>{p.height > 0 ? '+' : ''}{p.height.toFixed(1)} ft</div>
-                  </div>
-                ))}
+            {/* Multi-day tide schedule (7 days) */}
+            {tide.dailyTides.length > 0 && tide.dailyTides.map((day, di) => (
+              <div key={di} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: di === 0 ? C.cyan : C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{di === 0 ? 'Today' : di === 1 ? 'Tomorrow' : day.label}</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {day.tides.map((p, i) => (
+                    <div key={i} style={{ padding: di < 2 ? '8px 12px' : '6px 10px', borderRadius: di < 2 ? 8 : 6, background: p.type === 'high' ? `${C.cyan}${di < 2 ? '15' : '08'}` : `${C.amber}${di < 2 ? '15' : '08'}`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}${di < 2 ? '30' : '15'}`, fontSize: di < 2 ? 12 : 11, flex: '1 1 auto', textAlign: 'center' }}>
+                      <div style={{ fontWeight: di < 2 ? 700 : 600, color: p.type === 'high' ? C.cyan : C.amber, fontSize: di < 2 ? 14 : 11 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
+                      <div style={{ fontWeight: 700, fontSize: di < 2 ? 16 : 13 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                      <div style={{ color: C.mid, fontSize: di < 2 ? 12 : 10, fontWeight: 600 }}>{p.height > 0 ? '+' : ''}{p.height.toFixed(1)} ft</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>}
-
-            {/* Tomorrow's tide schedule */}
-            {tide.tomorrowTides.length > 0 && <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 10, color: C.dim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>Tomorrow</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {tide.tomorrowTides.map((p, i) => (
-                  <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}10` : `${C.amber}10`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}20`, fontSize: 11, flex: '1 1 auto', textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
-                    <div style={{ color: C.mid, fontSize: 10, fontWeight: 600 }}>{p.height > 0 ? '+' : ''}{p.height.toFixed(1)} ft</div>
-                  </div>
-                ))}
-              </div>
-            </div>}
+            ))}
 
             {/* Dual-source verification */}
             {cond.tideVerification && <div style={{ background: C.card, borderRadius: 6, padding: 8, border: `1px solid ${C.bdr}`, fontSize: 10, color: C.dim }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Source verification: <span style={{ color: cond.tideVerification.verified ? C.green : C.amber }}>{cond.tideVerification.confidence}</span></div>
-              {cond.tideVerification.station1 && <div>Station 1: {cond.tideVerification.station1.name} ({cond.tideVerification.station1.state})</div>}
-              {cond.tideVerification.station2 && <div>Station 2: {cond.tideVerification.station2.name} ({cond.tideVerification.station2.state})</div>}
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Data source: <span style={{ color: cond.tideVerification.verified ? C.green : C.amber }}>{cond.tideVerification.confidence}</span></div>
+              <div>Predictions: {cond.tideVerification.predStation?.name} (7-day hi/lo schedule)</div>
+              <div>Observed: {cond.tideVerification.obsStation?.name} {cond.tideVerification.obsStation?.hasData ? '(live)' : '(unavailable)'}</div>
             </div>}
           </div>
 
