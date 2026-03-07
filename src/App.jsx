@@ -62,7 +62,7 @@ export default function App() {
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads4', DEFAULT_SHELL_PADS);
   const [mapLayers, setMapLayers] = useLocalStorage('tt_layers6', { wadeLines: true, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes2', {});
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes3', {});
   const [editingRoute, setEditingRoute] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);
