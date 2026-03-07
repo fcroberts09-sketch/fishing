@@ -123,7 +123,7 @@ export default function App() {
   const editPanelRef = useRef(null);
 
   // ─── LIVE CONDITIONS (NOAA tides + Open-Meteo weather + Moon + Reports) ───
-  const cond = useConditions(selBay?.id);
+  const cond = useConditions(selBay?.id || 'matagorda');
   const weather = cond.weather || { temp: '--', windSpeed: 0, windDir: 0, windDirLabel: '--', windGusts: 0, conditions: 'Loading...', conditionIcon: '\u26C5' };
   const tide = cond.tides ? {
     status: cond.tides.tideState === 'incoming' ? 'Incoming' : cond.tides.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
@@ -735,7 +735,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
         throw new Error(err.error?.message || `API error ${res.status}`);
       }
       const data = await res.json();
-      const text = data.content?.[0]?.text || '';
+      let text = data.content?.[0]?.text || '';
+      text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
       const parsed = JSON.parse(text);
       setAiResponse(parsed);
     } catch (e) {
