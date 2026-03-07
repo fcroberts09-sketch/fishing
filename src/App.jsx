@@ -1100,9 +1100,9 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                     {/* Route */}
                     {showRoute && routeCoords.length > 0 && <>
                       <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 20, opacity: 0, stroke: true }} eventHandlers={{ click: () => {} }} />
-                      <Polyline positions={routeCoords} pathOptions={{ color: '#ffffff', weight: 5, opacity: 0.4 }} interactive={false} />
-                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 3, dashArray: '10 8', opacity: 0.8, className: 'route-dash-animate' }} interactive={false} />
-                      {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 4, opacity: 0.9 }} />}
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#fff', weight: 8, opacity: 0.5, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
+                      <Polyline positions={routeCoords} pathOptions={{ color: '#00C4D4', weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
+                      {routeStep > 0 && <Polyline positions={routeCoords.slice(0, routeStep + 1)} pathOptions={{ color: '#22d3ee', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }} />}
                       <Marker position={routeCoords[0]} icon={harborIcon(isMobile)} draggable={editingRoute} eventHandlers={{ click: () => setRouteStep(0), dragend: editingRoute ? (e) => handleRouteWaypointDrag(0, e) : undefined }}><Tooltip><b>{curRoute[0]?.title || 'Launch'}</b><br />{editingRoute ? 'Drag to move' : 'Starting point'}</Tooltip></Marker>
                       {curRoute.slice(1).map((w, i) => {
                         const idx = i + 1;
