@@ -7,9 +7,13 @@ const TIDE_STATIONS = {
     { id: '8773037', name: 'Matagorda City' },
     { id: '8773767', name: 'Matagorda Bay Entrance' },
   ],
-  galveston: [
-    { id: '8771341', name: 'Galveston Bay Entrance' },
-    { id: '8771450', name: 'Galveston Pier 21' },
+  west_matagorda: [
+    { id: '8773037', name: 'Matagorda City' },
+    { id: '8773767', name: 'Matagorda Bay Entrance' },
+  ],
+  san_antonio: [
+    { id: '8773259', name: 'Port Lavaca' },
+    { id: '8773701', name: 'Port O\'Connor' },
   ],
 };
 
@@ -236,10 +240,13 @@ async function fetchFishingReports(bayId) {
       { source: '2Cool Fishing', time: 'Yesterday', user: 'WadeKing', text: 'Reds stacked on the river mouth sand bar. Gold spoon was money. All slot fish.', species: ['Redfish'], area: 'River Mouth' },
       { source: 'TX Parks & Wildlife', time: '2 days ago', user: 'TPWD Report', text: 'Good numbers of trout and redfish in East Matagorda. Wade fishing producing best results around shell pads on incoming tides.', species: ['Trout', 'Redfish'], area: 'East Matagorda' },
     ],
-    galveston: [
-      { source: '2Cool Fishing', time: 'Today 7:30 AM', user: 'DikeFisher', text: 'Sheepshead on fire at dike rocks. Fiddler crabs are the ticket.', species: ['Sheepshead'], area: 'Dike Rocks' },
-      { source: '2Cool Fishing', time: 'Yesterday', user: 'TrophyHunter', text: 'Caught a 28" trout on topwater near Dollar Reef at sunrise.', species: ['Trout'], area: 'Dollar Reef' },
-      { source: 'TX Parks & Wildlife', time: '2 days ago', user: 'TPWD Report', text: 'West Galveston Bay producing slot reds in grass lines. Gulp shrimp under popping cork.', species: ['Redfish'], area: 'West Bay' },
+    west_matagorda: [
+      { source: '2Cool Fishing', time: 'Today 7:30 AM', user: 'CaptMike', text: 'Reds on shell reef west side. Gold spoon in the morning.', species: ['Redfish'], area: 'West Bay Shell' },
+      { source: 'TX Parks & Wildlife', time: '2 days ago', user: 'TPWD Report', text: 'Good trout action in the cuts west of the ship channel on topwater.', species: ['Trout'], area: 'West Bay Cuts' },
+    ],
+    san_antonio: [
+      { source: '2Cool Fishing', time: 'Today 6:00 AM', user: 'DeltaDrifter', text: 'Slot reds on popping cork in the Guadalupe delta. Best on incoming.', species: ['Redfish'], area: 'Guadalupe Delta' },
+      { source: 'TX Parks & Wildlife', time: '1 day ago', user: 'TPWD Report', text: 'Trout and redfish in Hynes Bay on soft plastics. Clear water conditions.', species: ['Trout', 'Redfish'], area: 'Hynes Bay' },
     ],
   };
   return reports[bayId] || [];
@@ -258,7 +265,8 @@ export function useConditions(bayId) {
 
   const bayCoords = {
     matagorda: { lat: 28.72, lng: -95.88 },
-    galveston: { lat: 29.30, lng: -94.85 },
+    west_matagorda: { lat: 28.68, lng: -96.10 },
+    san_antonio: { lat: 28.30, lng: -96.60 },
   };
 
   const fetchAll = useCallback(async () => {

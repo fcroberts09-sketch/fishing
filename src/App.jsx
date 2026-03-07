@@ -1475,11 +1475,12 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                 <div style={{ fontSize: 16, fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}>{tide.status}</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
-                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Now</div>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Level</div>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>{tide.height != null ? `${tide.height} ft` : '--'}</div>
+                <div style={{ fontSize: 8, color: C.dim }}>MLLW datum</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
-                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Movement</div>
+                <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Swing</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: C.teal }}>{tide.movementFt ? `${tide.movementFt} ft` : '--'}</div>
               </div>
             </div>
@@ -1500,8 +1501,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
                 {tide.todayTides.map((p, i) => (
                   <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 12, flex: '1 1 auto', textAlign: 'center' }}>
                     <div style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber, fontSize: 14 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>{p.height.toFixed(1)} ft</div>
-                    <div style={{ color: C.mid, fontSize: 11 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ color: C.mid, fontSize: 11 }}>{p.height.toFixed(1)} ft MLLW</div>
                   </div>
                 ))}
               </div>
@@ -1513,8 +1514,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {tide.tomorrowTides.map((p, i) => (
                   <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}10` : `${C.amber}10`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}20`, fontSize: 11, flex: '1 1 auto', textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191' : '\u2193'} {p.height.toFixed(1)}ft</div>
-                    <div style={{ color: C.mid, fontSize: 10 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'} {p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ color: C.mid, fontSize: 10 }}>{p.height.toFixed(1)} ft MLLW</div>
                   </div>
                 ))}
               </div>
