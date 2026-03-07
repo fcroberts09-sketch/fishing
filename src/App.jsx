@@ -53,7 +53,7 @@ export default function App() {
   const [allSpots, setAllSpots] = useLocalStorage('tt_spots5', DEFAULT_SPOTS);
   const [launches, setLaunches] = useLocalStorage('tt_launches6', DEFAULT_LAUNCHES);
   const [shadeZones, setShadeZones] = useLocalStorage('tt_zones4', DEFAULT_SHADE_ZONES);
-  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines5', DEFAULT_WADE_LINES);
+  const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines6', DEFAULT_WADE_LINES);
   const [communityPhotos, setCommunityPhotos] = useLocalStorage('tt_photos4', DEFAULT_PHOTOS);
   const [favorites, setFavorites] = useLocalStorage('tt_favorites', []);
   const [settings, setSettings] = useLocalStorage('tt_settings', { claudeApiKey: '', autoAI: true, units: 'imperial' });
@@ -62,7 +62,7 @@ export default function App() {
   const [shellPads, setShellPads] = useLocalStorage('tt_shellpads4', DEFAULT_SHELL_PADS);
   const [mapLayers, setMapLayers] = useLocalStorage('tt_layers6', { wadeLines: true, wadeZones: false, castRange: false, depthMarkers: false, sandBars: false, shellPads: false, spots: true, launches: true, photos: false, kayakLaunches: false, baitShops: false, marinas: false, areaLabels: false, windArrows: true, noaaCharts: true });
   const [customPOIs, setCustomPOIs] = useLocalStorage('tt_custom_pois', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes', {});
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('tt_saved_routes2', {});
   const [editingRoute, setEditingRoute] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [drawingPolygon, setDrawingPolygon] = useState(null);

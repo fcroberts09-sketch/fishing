@@ -84,16 +84,17 @@ const WEST_BAY_CUT_ROUTE = [
   { lat: 28.606724, lng: -96.086251 },
 ];
 
-// Route south from harbor into open East Matagorda Bay
-// Follows East Bay channel briefly then turns south through verified open water.
-// Water coordinates verified from GPX drift line wl-8 and known fishing spots.
+// Route south from harbor into open Matagorda Bay
+// Goes east through harbor channel past the marsh peninsula, then turns south
+// through open water. Must stay east of the marsh (lng < -95.930) until south of it.
 const SOUTH_BAY_ROUTE = [
   { lat: 28.693098, lng: -95.956347 },  // channel exit
   { lat: 28.691257, lng: -95.954186 },  // heading east through channel
   { lat: 28.701561, lng: -95.932550 },  // East Bay channel (verified open water)
-  { lat: 28.688872, lng: -95.928976 },  // turning south (wl-8 drift line)
-  { lat: 28.674439, lng: -95.926751 },  // open water south (wl-8 drift line)
-  { lat: 28.660467, lng: -95.933015 },  // open water (wl-8 drift line)
+  { lat: 28.709718, lng: -95.912993 },  // continue east past marsh peninsula
+  { lat: 28.698000, lng: -95.913000 },  // turn south in open water east of marsh
+  { lat: 28.680000, lng: -95.916000 },  // open water, well east of marsh
+  { lat: 28.660467, lng: -95.917000 },  // open water south of marsh
   { lat: 28.646207, lng: -95.922664 },  // Deep Scatter Shell area
   { lat: 28.634135, lng: -95.925605 },  // Fishing Drains area
 ];
@@ -131,12 +132,13 @@ const LAND_POLYGONS = [
   // Main marsh peninsula between ICW channel and open East Matagorda Bay.
   // The ICW runs SW from the harbor along the west side of this marsh.
   // Open bay water is to the east/south. The Colorado River cuts through.
-  // Bounded conservatively: all known water points (routes, spots, wade lines)
-  // have been verified to be outside this polygon.
+  // Eastern edge extends to ~-95.920 based on satellite imagery.
+  // Routes must go east past the peninsula (via harbor channel) then turn south.
   [
-    { lat: 28.680, lng: -95.965 },
-    { lat: 28.680, lng: -95.938 },
-    { lat: 28.625, lng: -95.938 },
+    { lat: 28.690, lng: -95.965 },
+    { lat: 28.690, lng: -95.920 },
+    { lat: 28.650, lng: -95.920 },
+    { lat: 28.630, lng: -95.935 },
     { lat: 28.625, lng: -95.965 },
   ],
 ];
