@@ -8,6 +8,7 @@ import { haversineNM, calcBearing, bearingLabel, parseDMS, parseDecimal, parseGP
 import { extractPhotoGPS, generateGPX, parseGPXFile, downloadFile } from './utils/gps';
 import { DEFAULT_SPOTS } from './data/spots';
 import { BAY_CONFIGS, BAY_DATA, DEFAULT_SHADE_ZONES, DEFAULT_LAUNCHES, DEFAULT_WADE_LINES, DEFAULT_PHOTOS, DEFAULT_DEPTH_MARKERS, DEFAULT_SAND_BARS, DEFAULT_SHELL_PADS, generateRoute, itemToLatLng, zoneToLatLng } from './data/bays';
+import { isWestBayDestination } from './data/channelGraph';
 import { FitBounds, EditModeZoomControl, MapClickHandler, FlyToLocation, MapStabilizer, spotIcon, launchIcon, photoIcon, waypointIcon, harborIcon, userLocationIcon, zoneCenterIcon, wadePointIcon, depthMarkerIcon, shellPadIcon, resizeHandleIcon, sandBarPointIcon, castDistLabel, depthColor, windArrowIcon, baitShopIcon, marinaIcon, kayakLaunchIcon, areaLabelIcon } from './components/MapHelpers';
 import { KAYAK_LAUNCHES, BOAT_RAMPS, BAIT_SHOPS, MARINAS, BAY_AREA_LABELS, generateWindArrows, generateWaveMarkers } from './data/pois';
 import { FishI, WindI, WaveI, SunI, PinI, UsrI, NavI, StarI, XI, ChkI, PlusI, GearI, CamI, ImgI, SparkI, AnchorI, ArrowLI, EditI, TrashI, SaveI, KeyI, UploadI, MapEdI, ThermI, TargetI, CopyI, DownloadI, SearchI, LayerI, MoveI, UndoI, ClockI, HeartI, LocI, DepthI, ShellI, SandI, EyeI, EyeOffI, MinusI } from './components/Icons';
@@ -32,6 +33,8 @@ export default function App() {
   const [selSpot, setSelSpot] = useState(null);
   const [showRoute, setShowRoute] = useState(false);
   const [routeStep, setRouteStep] = useState(0);
+  const [westRouteChoice, setWestRouteChoice] = useState(null); // 'icw' | 'cut' | null
+  const [showRouteChoice, setShowRouteChoice] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [spotFilter, setSpotFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -219,9 +222,9 @@ export default function App() {
     const startLat = harbor?.lat || HARBOR.lat;
     const startLng = harbor?.lng || HARBOR.lng;
     const startName = harbor?.name || HARBOR.name;
-    const route = generateRoute(startLat, startLng, startName, sLat, sLng, selSpot.name);
+    const route = generateRoute(startLat, startLng, startName, sLat, sLng, selSpot.name, westRouteChoice);
     return computeRouteStats(route);
-  }, [selSpot, selBay, bayConfig, routeKey, savedRoutes, launches, computeRouteStats]);
+  }, [selSpot, selBay, bayConfig, routeKey, savedRoutes, launches, computeRouteStats, westRouteChoice]);
 
   useMemo(() => { let cum = 0; curRoute.forEach((wp) => { cum += wp.dist; wp.cumDist = cum; }); }, [curRoute]);
 
@@ -626,8 +629,22 @@ export default function App() {
   const cpGPS = (g) => { navigator.clipboard?.writeText(`${g.lat}, ${g.lng}`); setCopied(true); setTimeout(() => setCopied(false), 2000); };
   const openBay = (id) => { setSelBay(BAY_DATA[id]); setPage('bay'); setSelSpot(null); setShowRoute(false); setSpotFilter('all'); setSearchQuery(''); };
   const openSpot = useCallback((s) => { setSelSpot(s); setShowRoute(false); setRouteStep(0); setMobilePanel('spot-detail'); }, []);
-  const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); setEditingRoute(false); };
-  const startNav = () => { setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav'); };
+  const endNav = () => { setShowRoute(false); setRouteStep(0); setPlaying(false); setTripActive(false); setMobilePanel(null); setEditingRoute(false); setWestRouteChoice(null); };
+  const startNav = () => {
+    if (selSpot && selBay) {
+      const [sLat, sLng] = itemToLatLng(selSpot, bayConfig);
+      if (isWestBayDestination(sLat, sLng) && !westRouteChoice) {
+        setShowRouteChoice(true);
+        return;
+      }
+    }
+    setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav');
+  };
+  const confirmRouteChoice = (choice) => {
+    setWestRouteChoice(choice);
+    setShowRouteChoice(false);
+    setShowRoute(true); setRouteStep(0); setPlaying(false); setTripActive(true); setTripStart(Date.now()); setMobilePanel('nav');
+  };
 
   // ─── MOBILE WAYPOINT EDITING CALLBACKS ───
   const handleWaypointLongPress = useCallback((type, id) => {
@@ -1768,6 +1785,23 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
 
       {/* MOBILE EDIT MODE HINT */}
       {isMobile && editMode && !ctxMenu && <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 35, background: C.amber, color: C.bg, padding: '10px 20px', borderRadius: 24, fontSize: 13, fontWeight: 700, boxShadow: '0 4px 20px #f59e0b40', fontFamily: Fnt }}>Long-press map to add marker</div>}
+
+      {showRouteChoice && <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowRouteChoice(false)}>
+        <div style={{ background: C.card, borderRadius: 14, padding: isMobile ? 20 : 24, maxWidth: 380, width: '100%', boxShadow: '0 8px 40px #000a', border: `1px solid ${C.bdr}` }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: C.txt, marginBottom: 4 }}>Choose Route to West Bay</div>
+          <div style={{ fontSize: 12, color: C.mid, marginBottom: 16 }}>Two routes are available from the harbor</div>
+          <button onClick={() => confirmRouteChoice('icw')} style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${C.bdr}`, background: C.card2, cursor: 'pointer', marginBottom: 10, textAlign: 'left', fontFamily: Fnt }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: C.txt }}>ICW Channel</div>
+            <div style={{ fontSize: 11, color: C.mid, marginTop: 2 }}>Intracoastal Waterway — protected, calmer water</div>
+          </button>
+          <button onClick={() => confirmRouteChoice('cut')} style={{ width: '100%', padding: '14px 16px', borderRadius: 10, border: `1px solid ${C.cyan}60`, background: `${C.cyan}10`, cursor: 'pointer', textAlign: 'left', fontFamily: Fnt }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: C.txt }}>Mad Island Cut</div>
+            <div style={{ fontSize: 11, color: C.mid, marginTop: 2 }}>Shorter but open water — recommended on low tide</div>
+            <div style={{ fontSize: 10, color: C.amber, fontWeight: 600, marginTop: 4 }}>Best on low tide &bull; Can be rough with strong S winds</div>
+          </button>
+          <button onClick={() => setShowRouteChoice(false)} style={{ width: '100%', marginTop: 10, padding: '8px 0', background: 'none', border: 'none', color: C.dim, cursor: 'pointer', fontSize: 12, fontFamily: Fnt }}>Cancel</button>
+        </div>
+      </div>}
 
       {toast && <div style={{ position: 'fixed', bottom: isMobile ? 80 : 24, left: '50%', transform: 'translateX(-50%)', background: C.green, color: '#fff', padding: isMobile ? '12px 24px' : '10px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600, zIndex: 2000, boxShadow: '0 4px 20px #0008', display: 'flex', alignItems: 'center', gap: 6 }}>{'\u2713'} {toast}</div>}
 

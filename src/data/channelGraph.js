@@ -252,8 +252,8 @@ function findClosestPointOnRoute(route, destLat, destLng) {
 
 // Pick the best anchor route and peel-off point for a destination.
 // Enforces: East Bay destinations must go through the East Bay Entrance.
-// Prefers peel-offs that don't cross land. Among land-free options, picks shortest.
-function pickRoute(destLat, destLng) {
+// preferredWestRoute: 'icw' | 'cut' — user-selected route for West Bay
+function pickRoute(destLat, destLng, preferredWestRoute) {
   // East Bay destinations MUST use the East Bay route through the entrance
   if (isInEastBay(destLat, destLng)) {
     const { index } = findClosestPointOnRoute(EAST_BAY_ROUTE, destLat, destLng);
@@ -264,10 +264,19 @@ function pickRoute(destLat, destLng) {
     return { route: EAST_BAY_ROUTE, name: 'East Bay', index: enforced, dist, crossesLand };
   }
 
+  // West Bay: honor user's route preference if destination is in West Bay
+  if (preferredWestRoute && isWestBayDestination(destLat, destLng)) {
+    const chosen = preferredWestRoute === 'cut' ? WEST_BAY_CUT_ROUTE : WEST_BAY_ICW_ROUTE;
+    const chosenName = preferredWestRoute === 'cut' ? 'Mad Island Cut' : 'ICW Channel';
+    const { index, dist } = findClosestPointOnRoute(chosen, destLat, destLng);
+    const crossesLand = segmentCrossesLand(chosen[index], { lat: destLat, lng: destLng });
+    return { route: chosen, name: chosenName, index, dist, crossesLand };
+  }
+
   const routes = [
     { route: EAST_BAY_ROUTE, name: 'East Bay' },
-    { route: WEST_BAY_ICW_ROUTE, name: 'West Bay ICW' },
-    { route: WEST_BAY_CUT_ROUTE, name: 'West Bay Cut' },
+    { route: WEST_BAY_ICW_ROUTE, name: 'ICW Channel' },
+    { route: WEST_BAY_CUT_ROUTE, name: 'Mad Island Cut' },
     { route: SOUTH_BAY_ROUTE, name: 'South Bay' },
   ];
 
@@ -292,10 +301,18 @@ function pickRoute(destLat, destLng) {
 
 // ─── PUBLIC API ───
 
+// Check if a destination requires a West Bay route choice
+export function isWestBayDestination(destLat, destLng) {
+  return destLng < WEST_BAY_BOUNDS.east && destLng > WEST_BAY_BOUNDS.west &&
+         destLat < WEST_BAY_BOUNDS.north && destLat > WEST_BAY_BOUNDS.south &&
+         !isInEastBay(destLat, destLng);
+}
+
 // Compute a water route from harbor to destination.
 // Follows the best anchor route, peels off to the fishing spot,
 // and avoids crossing land/marsh areas.
-export function computeWaterRoute(startLat, startLng, startName, destLat, destLng, destName) {
+// preferredWestRoute: 'icw' | 'cut' — user preference for West Bay destinations
+export function computeWaterRoute(startLat, startLng, startName, destLat, destLng, destName, preferredWestRoute) {
   // If destination is very close to harbor, go direct
   const directDist = haversineNM(HARBOR.lat, HARBOR.lng, destLat, destLng);
   if (directDist < 0.5) {
@@ -305,7 +322,7 @@ export function computeWaterRoute(startLat, startLng, startName, destLat, destLn
     ];
   }
 
-  const best = pickRoute(destLat, destLng);
+  const best = pickRoute(destLat, destLng, preferredWestRoute);
 
   // Build waypoints: Harbor -> follow anchor route to peel-off -> destination
   const waypoints = [];

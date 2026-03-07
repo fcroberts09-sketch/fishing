@@ -164,54 +164,6 @@ export const DEFAULT_WADE_LINES = [
     ],
   },
   {
-    id: 'wl-12', bay: 'matagorda', label: 'Route: Harbor to East Bay',
-    color: '#06b6d4', castRange: 0, bottomType: 'channel', direction: 'E',
-    points: [
-      { lat: 28.693098, lng: -95.956347 }, { lat: 28.691257, lng: -95.954186 },
-      { lat: 28.701561, lng: -95.93255 }, { lat: 28.709718, lng: -95.912993 },
-      { lat: 28.716362, lng: -95.88851 }, { lat: 28.71711, lng: -95.886648 },
-      { lat: 28.712395, lng: -95.886679 }, { lat: 28.707911, lng: -95.884541 },
-      { lat: 28.6861, lng: -95.879623 },
-    ],
-  },
-  {
-    id: 'wl-13', bay: 'matagorda', label: 'Route: Harbor to West Bay (ICW)',
-    color: '#06b6d4', castRange: 0, bottomType: 'channel', direction: 'SW',
-    points: [
-      { lat: 28.694128, lng: -95.956334 }, { lat: 28.691599, lng: -95.954872 },
-      { lat: 28.686554, lng: -95.966149 }, { lat: 28.68334, lng: -95.969352 },
-      { lat: 28.680178, lng: -95.973377 }, { lat: 28.676823, lng: -95.972816 },
-      { lat: 28.676261, lng: -95.974758 }, { lat: 28.67533, lng: -95.977101 },
-      { lat: 28.672916, lng: -95.977379 }, { lat: 28.667909, lng: -95.977652 },
-      { lat: 28.660931, lng: -95.980598 }, { lat: 28.658219, lng: -95.982126 },
-      { lat: 28.65382, lng: -95.985891 }, { lat: 28.649648, lng: -95.989274 },
-      { lat: 28.641627, lng: -95.995222 }, { lat: 28.639132, lng: -95.994395 },
-      { lat: 28.637558, lng: -95.994878 }, { lat: 28.634575, lng: -95.995324 },
-      { lat: 28.631572, lng: -95.994906 }, { lat: 28.629094, lng: -95.993848 },
-      { lat: 28.62673, lng: -95.992191 }, { lat: 28.623968, lng: -95.993681 },
-      { lat: 28.62269, lng: -95.995479 }, { lat: 28.62008, lng: -95.998247 },
-      { lat: 28.61531, lng: -96.003549 }, { lat: 28.604154, lng: -96.014175 },
-    ],
-  },
-  {
-    id: 'wl-14', bay: 'matagorda', label: 'Route: Harbor to West Bay via Matt Island Cut - can be rough with strong S winds',
-    color: '#06b6d4', castRange: 0, bottomType: 'channel', direction: 'SW',
-    points: [
-      { lat: 28.693676, lng: -95.956971 }, { lat: 28.691358, lng: -95.955023 },
-      { lat: 28.684849, lng: -95.967574 }, { lat: 28.681699, lng: -95.972254 },
-      { lat: 28.6782, lng: -95.974051 }, { lat: 28.676781, lng: -95.972649 },
-      { lat: 28.67563, lng: -95.976117 }, { lat: 28.677348, lng: -95.977141 },
-      { lat: 28.68058, lng: -95.976207 }, { lat: 28.681526, lng: -95.977285 },
-      { lat: 28.677222, lng: -95.985929 }, { lat: 28.665156, lng: -96.01326 },
-      { lat: 28.661706, lng: -96.020873 }, { lat: 28.65957, lng: -96.038953 },
-      { lat: 28.657907, lng: -96.046151 }, { lat: 28.648993, lng: -96.061713 },
-      { lat: 28.640526, lng: -96.07023 }, { lat: 28.636478, lng: -96.074898 },
-      { lat: 28.633324, lng: -96.087489 }, { lat: 28.629182, lng: -96.094689 },
-      { lat: 28.626376, lng: -96.099866 }, { lat: 28.623495, lng: -96.098682 },
-      { lat: 28.615842, lng: -96.092414 }, { lat: 28.606724, lng: -96.086251 },
-    ],
-  },
-  {
     id: 'wl-15', bay: 'matagorda', label: 'Deep gut - fish from boat even on low tide, redfish',
     color: '#3b82f6', castRange: 40, bottomType: 'mud', direction: 'S',
     points: [
@@ -256,8 +208,8 @@ export const DEFAULT_SHELL_PADS = [];
 export const DEFAULT_PHOTOS = [];
 
 // Water-only route generation using channel graph + Dijkstra
-export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName) {
-  const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName);
+export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredWestRoute) {
+  const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredWestRoute);
   if (waterRoute && waterRoute.length >= 2) return waterRoute;
   // Fallback: direct 2-point route if graph routing fails
   return [
