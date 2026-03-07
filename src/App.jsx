@@ -1016,8 +1016,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                         <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 20, opacity: 0, stroke: true }} eventHandlers={{ click: () => { if (editMode) selectForEdit('wadeline', wl.id); } }}>
                           <Tooltip><b>{wl.label}</b><br/>{wl.castRange || 40}yd cast | {wl.bottomType || 'unknown'} bottom{wl.direction ? ' | Wade ' + wl.direction : ''}{editMode ? '\nClick to edit' : ''}</Tooltip>
                         </Polyline>
-                        <Polyline positions={lineCoords} pathOptions={{ color: '#fff', weight: 7, opacity: 0.5, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
-                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 4, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }} interactive={false} />
+                        <Polyline positions={lineCoords} pathOptions={{ color: wl.color, weight: 2, opacity: 0.8, dashArray: '6 5', lineCap: 'round', lineJoin: 'round' }} interactive={false} />
                         {mapLayers.castRange && castEnvelope.length > 2 && <Polygon positions={castEnvelope} pathOptions={{ color: wl.color, weight: 0.5, opacity: 0.3, fillColor: wl.color, fillOpacity: 0.1, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.left.length > 1 && <Polyline positions={cast.left} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
                         {mapLayers.castRange && cast.right.length > 1 && <Polyline positions={cast.right} pathOptions={{ color: wl.color, weight: 1, opacity: 0.3, dashArray: '4 6' }} />}
