@@ -130,19 +130,18 @@ export default function App() {
     const t = cond.tides;
     const todayTides = t.todayTides || [];
     const tomorrowTides = t.tomorrowTides || [];
-    // Compute relative tide level (0-100%) between day's low and high
-    const allHeights = todayTides.map(p => p.height);
-    const dayLow = allHeights.length ? Math.min(...allHeights) : 0;
-    const dayHigh = allHeights.length ? Math.max(...allHeights) : 1;
-    const range = dayHigh - dayLow || 0.1;
-    const levelPct = t.currentHeight != null ? Math.round(((t.currentHeight - dayLow) / range) * 100) : null;
+    // Compute swing = difference between day's high and low tide heights
+    const highs = todayTides.filter(p => p.type === 'high').map(p => p.height);
+    const lows = todayTides.filter(p => p.type === 'low').map(p => p.height);
+    const dayHigh = highs.length ? Math.max(...highs) : null;
+    const dayLow = lows.length ? Math.min(...lows) : null;
+    const swing = dayHigh != null && dayLow != null ? Math.abs(dayHigh - dayLow) : null;
     return {
       status: t.tideState === 'incoming' ? 'Incoming' : t.tideState === 'outgoing' ? 'Outgoing' : 'Slack',
       next: t.nextTide ? `${t.nextTide.type === 'high' ? 'High' : 'Low'} at ${t.nextTide.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '--',
       height: t.currentHeight,
       strength: t.tideStrength,
-      movementFt: t.movementFt,
-      levelPct,
+      swing,
       todayTides,
       tomorrowTides,
     };
@@ -717,9 +716,10 @@ export default function App() {
 CURRENT CONDITIONS:
 - Wind: ${weather.windSpeed} mph from ${weather.windDirLabel || 'unknown'} (gusts ${weather.windGusts} mph)
 - Temperature: ${weather.temp}°F, feels like ${weather.feelsLike}°F
-- Tide: ${tide.status || 'unknown'}, Level: ${tide.levelPct != null ? tide.levelPct + '%' : 'unknown'}
+- Tide: ${tide.status || 'unknown'}, Current level: ${tide.height != null ? tide.height.toFixed(1) + ' ft' : 'unknown'}
 - Next tide: ${tide.next || 'unknown'}
-- Tide swing: ${tide.movementFt || 'unknown'} ft
+- Today's tides: ${(tide.todayTides || []).map(t => `${t.type} at ${t.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${t.height > 0 ? '+' : ''}${t.height.toFixed(1)} ft)`).join(', ') || 'unknown'}
+- Tide swing: ${tide.swing != null ? tide.swing.toFixed(1) + ' ft' : 'unknown'}
 - Moon: ${cond.moon.name} (${cond.moon.illumination}% illumination)
 - Date/Time: ${new Date().toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
 
@@ -828,7 +828,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
         <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16, fontSize: isMobile ? 11 : 12, overflowX: isMobile ? 'auto' : 'visible', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><ThermI s={13} c={C.amber} /> {weather.temp}{'°F'}</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}><WindI s={13} c={C.cyan} /> {weather.windSpeed} mph {weather.windDirLabel}{!isMobile && ` (gusts ${weather.windGusts})`}</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.levelPct != null ? ` ${tide.levelPct}%` : ''}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, color: tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid }}><WaveI s={13} c={tide.status === 'Incoming' ? C.cyan : tide.status === 'Outgoing' ? C.amber : C.mid} /> {tide.status}{tide.height != null ? ` ${tide.height > 0 ? '+' : ''}${tide.height.toFixed(1)}ft` : ''}{tide.swing != null ? ` (${tide.swing.toFixed(1)}ft swing)` : ''}</span>
           <span style={{ flexShrink: 0 }}>{cond.moon.icon} {!isMobile ? cond.moon.name : ''}</span>
           {!isMobile && <span style={{ color: C.mid }}>{weather.conditionIcon} {weather.conditions}</span>}
           <button onClick={() => setShowConditions(true)} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 6, background: C.card2, border: `1px solid ${C.bdr}`, color: C.cyan, cursor: 'pointer', fontFamily: Fnt, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{cond.loading ? '\u23F3' : '\uD83C\uDF0A'} {isMobile ? '' : 'Conditions'}</button>
@@ -1371,7 +1371,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                       </div>
                       {/* Live conditions mini-bar */}
                       <div style={{ background: `${tide.status === 'Incoming' ? C.cyan : C.amber}08`, borderRadius: 8, padding: '8px 10px', border: `1px solid ${tide.status === 'Incoming' ? C.cyan : C.amber}20`, marginBottom: 10, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 4, fontSize: 10 }}>
-                        <div><div style={{ color: C.dim, fontSize: 8 }}>NOW</div><div style={{ fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : C.amber }}>{tide.status}{tide.levelPct != null ? ` ${tide.levelPct}%` : ''}</div></div>
+                        <div><div style={{ color: C.dim, fontSize: 8 }}>NOW</div><div style={{ fontWeight: 700, color: tide.status === 'Incoming' ? C.cyan : C.amber }}>{tide.status}{tide.height != null ? ` ${tide.height > 0 ? '+' : ''}${tide.height.toFixed(1)}ft` : ''}</div></div>
                         <div><div style={{ color: C.dim, fontSize: 8 }}>WIND</div><div style={{ fontWeight: 600 }}>{weather.windSpeed} {weather.windDirLabel}</div></div>
                         <div><div style={{ color: C.dim, fontSize: 8 }}>MOON</div><div style={{ fontWeight: 600 }}>{cond.moon.icon} {cond.moonRating.rating >= 4 ? '\u2B50' : ''}</div></div>
                       </div>
@@ -1504,12 +1504,11 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
                 <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Level</div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>{tide.levelPct != null ? `${tide.levelPct}%` : '--'}</div>
-                <div style={{ fontSize: 8, color: C.dim }}>{tide.levelPct != null ? (tide.levelPct > 70 ? 'Near High' : tide.levelPct < 30 ? 'Near Low' : 'Mid-Tide') : ''}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: tide.height > 0 ? C.cyan : tide.height < 0 ? C.amber : C.mid }}>{tide.height != null ? `${tide.height > 0 ? '+' : ''}${tide.height.toFixed(1)} ft` : '--'}</div>
               </div>
               <div style={{ background: C.card, borderRadius: 8, padding: '10px 12px', border: `1px solid ${C.bdr}` }}>
                 <div style={{ fontSize: 9, color: C.dim, fontWeight: 700, textTransform: 'uppercase' }}>Swing</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: C.teal }}>{tide.movementFt ? `${tide.movementFt} ft` : '--'}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.teal }}>{tide.swing != null ? `${tide.swing.toFixed(1)} ft` : '--'}</div>
               </div>
             </div>
 
@@ -1530,6 +1529,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                   <div key={i} style={{ padding: '8px 12px', borderRadius: 8, background: p.type === 'high' ? `${C.cyan}15` : `${C.amber}15`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}30`, fontSize: 12, flex: '1 1 auto', textAlign: 'center' }}>
                     <div style={{ fontWeight: 700, color: p.type === 'high' ? C.cyan : C.amber, fontSize: 14 }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
                     <div style={{ fontWeight: 700, fontSize: 16 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ color: C.mid, fontSize: 12, fontWeight: 600 }}>{p.height > 0 ? '+' : ''}{p.height.toFixed(1)} ft</div>
                   </div>
                 ))}
               </div>
@@ -1543,6 +1543,7 @@ Respond in this exact JSON format (no markdown, no code fences, just raw JSON):
                   <div key={i} style={{ padding: '6px 10px', borderRadius: 6, background: p.type === 'high' ? `${C.cyan}10` : `${C.amber}10`, border: `1px solid ${p.type === 'high' ? C.cyan : C.amber}20`, fontSize: 11, flex: '1 1 auto', textAlign: 'center' }}>
                     <div style={{ fontWeight: 600, color: p.type === 'high' ? C.cyan : C.amber }}>{p.type === 'high' ? '\u2191 HIGH' : '\u2193 LOW'}</div>
                     <div style={{ fontWeight: 700, fontSize: 13 }}>{p.time.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+                    <div style={{ color: C.mid, fontSize: 10, fontWeight: 600 }}>{p.height > 0 ? '+' : ''}{p.height.toFixed(1)} ft</div>
                   </div>
                 ))}
               </div>
