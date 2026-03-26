@@ -50,7 +50,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
 
   // ─── PERSISTED STATE (localStorage) ───
-  const [allSpots, setAllSpots] = useLocalStorage('tt_spots5', DEFAULT_SPOTS);
+  const [allSpots, setAllSpots] = useLocalStorage('tt_spots6', DEFAULT_SPOTS);
   const [launches, setLaunches] = useLocalStorage('tt_launches6', DEFAULT_LAUNCHES);
   const [shadeZones, setShadeZones] = useLocalStorage('tt_zones4', DEFAULT_SHADE_ZONES);
   const [wadeLines, setWadeLines] = useLocalStorage('tt_wadelines6', DEFAULT_WADE_LINES);
