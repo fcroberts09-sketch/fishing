@@ -208,8 +208,8 @@ export const DEFAULT_SHELL_PADS = [];
 export const DEFAULT_PHOTOS = [];
 
 // Water-only route generation using channel graph + Dijkstra
-export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredWestRoute) {
-  const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredWestRoute);
+export function generateRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredRouteId) {
+  const waterRoute = computeWaterRoute(startLat, startLng, startName, targetLat, targetLng, spotName, preferredRouteId);
   if (waterRoute && waterRoute.length >= 2) return waterRoute;
   // Fallback: direct 2-point route if graph routing fails
   return [
